@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import androidx.camera.core.ImageProxy
+import java.io.File
 import androidx.exifinterface.media.ExifInterface
 import com.measureme.app.R
 import com.measureme.app.pipeline.AppConstants
@@ -54,6 +55,41 @@ class ImageCaptureModule(private val context: Context) {
             val opts = BitmapFactory.Options().apply { inSampleSize = sample }
             val decoded = context.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, opts)
+            } ?: throw MeasureMeException.ImageUnreadable(null)
+
+            return applyExif(decoded, orientation)
+        } catch (t: MeasureMeException) {
+            throw t
+        } catch (t: Throwable) {
+            throw MeasureMeException.ImageUnreadable(t)
+        }
+    }
+
+    /**
+     * Decode straight from a File — same pipeline as decodeUri() but without
+     * going through ContentResolver. Used by the debug_photo verification hook
+     * (MIUI privacy layers can veto file:// URIs presented to the resolver).
+     */
+    fun decodeFile(file: File, maxDim: Int = AppConstants.MAX_ANALYSIS_DIM): Bitmap {
+        try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            file.inputStream().use { BitmapFactory.decodeStream(it, null, bounds) }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+                throw MeasureMeException.ImageUnreadable(null)
+            }
+
+            val orientation = file.inputStream().use { stream ->
+                ExifInterface(stream).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL
+                )
+            }
+
+            var sample = 1
+            while (max(bounds.outWidth, bounds.outHeight) / sample > maxDim) sample *= 2
+            val decoded = file.inputStream().use {
+                BitmapFactory.decodeStream(
+                    it, null, BitmapFactory.Options().apply { inSampleSize = sample }
+                )
             } ?: throw MeasureMeException.ImageUnreadable(null)
 
             return applyExif(decoded, orientation)

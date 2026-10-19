@@ -55,6 +55,31 @@ object MmIcons {
         "M12 17h.01",
     )
 
+    /** Mode A — Proportions: a standing figure. */
+    val Person = icon(
+        "Person",
+        "M14 4.8a2 2 0 1 0-4 0 2 2 0 1 0 4 0",
+        "M12 6.8v7.2",
+        "M12 9.3 8.5 12.3",
+        "M12 9.3l3.5 3",
+        "M12 14 9.5 19.5",
+        "M12 14l2.5 5.5",
+    )
+
+    /** Mode B — Horizon: a phone against a horizon line. */
+    val PhoneTilt = icon(
+        "PhoneTilt",
+        "M9.5 2.5h5A1.5 1.5 0 0 1 16 4v16a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 8 20V4a1.5 1.5 0 0 1 1.5-1.5z",
+        "M3.5 12h17",
+    )
+
+    /** Mode C — Reference: an A4 sheet with a folded corner. */
+    val Page = icon(
+        "Page",
+        "M14.5 2.5H7A1.5 1.5 0 0 0 5.5 4v16A1.5 1.5 0 0 0 7 21.5h10a1.5 1.5 0 0 0 1.5-1.5V7z",
+        "M14.5 2.5V7h4",
+    )
+
     private fun icon(name: String, vararg paths: String): ImageVector =
         ImageVector.Builder(
             name = name,

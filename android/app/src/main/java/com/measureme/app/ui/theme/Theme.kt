@@ -1,133 +1,169 @@
 package com.measureme.app.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.measureme.app.R
 
 /*
- * MeasureStudio design tokens — byte-verified against the reference build
- * (design/tokens.css and web/src/index.css @theme). Four colors, two font
- * families and one card radius; every other value in the UI is one of these
- * or a Tailwind-style opacity mix of them.
- *
- * The reference is a single fixed light theme — there is no dark variant,
- * and this port keeps it that way on purpose.
+ * MeasureMe design tokens — UI Design Specification v1.0, sections 2–4.
+ * One fixed light theme: paper, surface, ink, accent. No dark variant by design.
+ * Do not introduce lighter greys for text (spec §2: they fail AA).
  */
 object Mm {
-    val Bg = Color(0xFFEFE8DC)      // page background (warm cream)
-    val Surface = Color(0xFFFBF7F0) // cards, secondary buttons, inputs
-    val Ink = Color(0xFF1C1712)     // text, photo frame, label outlines
-    val Primary = Color(0xFFB8431F) // actions, glyph, markers, meter fill
+    val Paper = Color(0xFFF4F1EA)   // page background
+    val Surface = Color(0xFFFBF8F2) // cards, mode cards, secondary buttons
+    val Ink = Color(0xFF231F1B)     // primary text
+    val Ink2 = Color(0xFF5C544B)    // secondary text
+    val Accent = Color(0xFFB4451C)  // primary button, check marks, progress
+    val OnAccent = Color(0xFFFFFFFF)
+    val AccentPress = Color(0xFF983A17)
 
-    // Opacity mixes the reference relies on (text-ink/60, border-ink/15, …).
-    val Ink80 = Ink.copy(alpha = 0.80f)
-    val Ink75 = Ink.copy(alpha = 0.75f)
-    val Ink70 = Ink.copy(alpha = 0.70f)
-    val Ink60 = Ink.copy(alpha = 0.60f)
-    val Ink30 = Ink.copy(alpha = 0.30f)
-    val Ink15 = Ink.copy(alpha = 0.15f)
-    val Ink10 = Ink.copy(alpha = 0.10f)
-    val Ink5 = Ink.copy(alpha = 0.05f)
-    val Surface80 = Surface.copy(alpha = 0.80f)
-    val Surface75 = Surface.copy(alpha = 0.75f)
-    val Primary90 = Primary.copy(alpha = 0.90f)
+    /** Hairline borders (decorative) — rgba(35,31,27,0.10). */
+    val Line = Color(0x1A231F1B)
 
-    /** The reference's disabled state: 45% opacity. */
-    const val DisabledAlpha = 0.45f
+    /** Unselected radio outline — rgba(35,31,27,0.18). */
+    val LineStrong = Color(0x2E231F1B)
 
-    /** Card radius — the single shape token (rounded-3xl / radius-card). */
-    val CardRadius = androidx.compose.ui.unit.Dp(24f)
+    /** Recessed surfaces (viewfinder, stat tiles, progress track): paper at ~ink 4%. */
+    val Inset = Color(0xFFECE9E2)
+
+    /** Ambient card shadow colour — rgba(35,31,27,0.18). */
+    val Shadow = Color(0x2E231F1B)
+
+    /** Disabled controls: 40% opacity (spec §5). */
+    const val DisabledAlpha = 0.40f
 }
 
-/** Fraunces (display): the reference loads only the 560 and 650 instances. */
-val DisplayFont = FontFamily(
-    Font(R.font.fraunces_560, FontWeight.Medium),   // CSS 400–560 resolves here
-    Font(R.font.fraunces_650, FontWeight.SemiBold), // CSS 600+ resolves here
-)
-
-/** Outfit (UI): exactly the three weights the reference uses: 400 / 500 / 600. */
-val SansFont = FontFamily(
-    Font(R.font.outfit_400, FontWeight.Normal),
-    Font(R.font.outfit_500, FontWeight.Medium),
-    Font(R.font.outfit_600, FontWeight.SemiBold),
-)
+/** Radii from the spec: viewfinder 28, card and mode card 24, button and tile 16. */
+object MmShapes {
+    val Viewfinder: Shape = RoundedCornerShape(28.dp)
+    val Card: Shape = RoundedCornerShape(24.dp)
+    val Button: Shape = RoundedCornerShape(16.dp)
+    val Tile: Shape = RoundedCornerShape(16.dp)
+    val Progress: Shape = RoundedCornerShape(percent = 50)
+}
 
 /*
- * Named text styles, one per role in the reference CSS (design/app.css).
- * Line heights: text-sm is 14/20 (UI lines) or 14/22.75 (prose, leading
- * 1.625); text-base is 16/26; display styles carry the reference's leading.
+ * The bundled font instances (static TTFs generated from the variable fonts):
+ *  - Fraunces 400 at optical size 88 — the one big number
+ *  - Fraunces 500 at optical size 40 — the home headline
+ *  - Fraunces 500 at optical size 18 — wordmark and titles
+ *  - Inter 400 / 500 / 600 — everything else
  */
+val FrauncesNumber = FontFamily(Font(R.font.fraunces_400, FontWeight.Normal))
+val FrauncesHeadline = FontFamily(Font(R.font.fraunces_500, FontWeight.Medium))
+val FrauncesText = FontFamily(Font(R.font.fraunces_500_text, FontWeight.Medium))
+val Inter = FontFamily(
+    Font(R.font.inter_400, FontWeight.Normal),
+    Font(R.font.inter_500, FontWeight.Medium),
+    Font(R.font.inter_600, FontWeight.SemiBold),
+)
+
+/** Named text styles — one per role in the spec's typography table (§3). */
 object MmType {
     private const val TABULAR = "tnum"
 
-    val kicker = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp, color = Mm.Ink60)
-    val title = TextStyle(fontFamily = DisplayFont, fontSize = 36.sp, fontWeight = FontWeight.SemiBold, lineHeight = 40.sp, letterSpacing = (-0.025).em, color = Mm.Ink)
-    val lede = TextStyle(fontFamily = SansFont, fontSize = 16.sp, fontWeight = FontWeight.Normal, lineHeight = 26.sp, color = Mm.Ink80)
+    /** Home headline — Fraunces 40 / 42, weight 500, tracking -0.02em. */
+    val headline = TextStyle(
+        fontFamily = FrauncesHeadline, fontSize = 40.sp, lineHeight = 42.sp,
+        fontWeight = FontWeight.Medium, letterSpacing = (-0.02).em, color = Mm.Ink,
+    )
 
-    // Buttons
-    val btnMd = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp)
-    val btnLg = TextStyle(fontFamily = SansFont, fontSize = 16.sp, fontWeight = FontWeight.Medium, lineHeight = 24.sp)
+    /** Result number — Fraunces 88 / 88, weight 400, tabular figures. */
+    val resultNumber = TextStyle(
+        fontFamily = FrauncesNumber, fontSize = 88.sp, lineHeight = 88.sp,
+        fontWeight = FontWeight.Normal, letterSpacing = (-0.02).em,
+        fontFeatureSettings = TABULAR, color = Mm.Ink,
+    )
 
-    // Photo frame
-    val frameTitle = TextStyle(fontFamily = DisplayFont, fontSize = 24.sp, fontWeight = FontWeight.Normal, lineHeight = 32.sp, color = Mm.Surface)
-    val frameCopy = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 22.75.sp, color = Mm.Surface75)
+    /** Wordmark and screen titles — Fraunces 18 / 24, weight 500. */
+    val wordmark = TextStyle(
+        fontFamily = FrauncesText, fontSize = 18.sp, lineHeight = 24.sp,
+        fontWeight = FontWeight.Medium, letterSpacing = (-0.02).em, color = Mm.Ink,
+    )
 
-    // Cards
-    val panelTitle = TextStyle(fontFamily = DisplayFont, fontSize = 24.sp, fontWeight = FontWeight.Normal, lineHeight = 32.sp, color = Mm.Ink)
-    val eyebrow = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp, color = Mm.Ink60)
+    /** Body — Inter 15 / 22, weight 400. */
+    val body = TextStyle(
+        fontFamily = Inter, fontSize = 15.sp, lineHeight = 22.sp, color = Mm.Ink,
+    )
 
-    val bigNumber = TextStyle(fontFamily = DisplayFont, fontSize = 60.sp, fontWeight = FontWeight.SemiBold, lineHeight = 60.sp, fontFeatureSettings = TABULAR, color = Mm.Ink)
-    val unit = TextStyle(fontFamily = SansFont, fontSize = 24.sp, fontWeight = FontWeight.Medium, lineHeight = 32.sp, color = Mm.Ink70)
-    val imperial = TextStyle(fontFamily = SansFont, fontSize = 18.sp, fontWeight = FontWeight.Normal, lineHeight = 28.sp, fontFeatureSettings = TABULAR, color = Mm.Ink80)
+    /** Secondary body — Inter 14 / 20, weight 400. */
+    val body2 = TextStyle(
+        fontFamily = Inter, fontSize = 14.sp, lineHeight = 20.sp, color = Mm.Ink2,
+    )
 
-    val qualityLabel = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp, color = Mm.Ink)
-    val qualityScore = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp, fontFeatureSettings = TABULAR, color = Mm.Ink70)
+    /** Caption — Inter 13 / 18 (privacy line). */
+    val caption = TextStyle(
+        fontFamily = Inter, fontSize = 13.sp, lineHeight = 18.sp, color = Mm.Ink2,
+    )
 
-    val note70 = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 22.75.sp, color = Mm.Ink70)
-    val note75 = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 22.75.sp, color = Mm.Ink75)
-    val note80 = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 22.75.sp, color = Mm.Ink80)
-    val body14 = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 22.75.sp, color = Mm.Ink)
-    val formulaSym = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 22.75.sp, color = Mm.Ink)
-    val formulaSub = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 22.75.sp, fontFeatureSettings = TABULAR, color = Mm.Ink80)
+    /** Label — Inter 13 / 18, weight 500. Sentence case only. */
+    val label = TextStyle(
+        fontFamily = Inter, fontSize = 13.sp, lineHeight = 18.sp,
+        fontWeight = FontWeight.Medium, color = Mm.Ink2,
+    )
 
-    val tileLabel = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp, color = Mm.Ink60)
-    val tileValue = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp, fontFeatureSettings = TABULAR, color = Mm.Ink)
+    /** Buttons — Inter 15, weight 500, tracking -0.005em. */
+    val button = TextStyle(
+        fontFamily = Inter, fontSize = 15.sp, lineHeight = 20.sp,
+        fontWeight = FontWeight.Medium, letterSpacing = (-0.005).em,
+    )
 
-    val status = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp, color = Mm.Ink60)
-    val hint = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 22.75.sp, color = Mm.Ink80)
-    val summary = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp, color = Mm.Ink)
-    val fieldText = TextStyle(fontFamily = SansFont, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp, fontFeatureSettings = TABULAR, color = Mm.Ink)
+    /** Unit beside the result number — small, Inter. */
+    val unit = TextStyle(
+        fontFamily = Inter, fontSize = 20.sp, lineHeight = 24.sp,
+        fontWeight = FontWeight.Medium, color = Mm.Ink2,
+    )
+
+    /** Imperial + range line under the result number — tabular so digits align. */
+    val resultLine = TextStyle(
+        fontFamily = Inter, fontSize = 15.sp, lineHeight = 22.sp,
+        fontFeatureSettings = TABULAR, color = Mm.Ink2,
+    )
+
+    /** Quality row score on the right — Inter 14, ink-2. */
+    val qualityScore = TextStyle(
+        fontFamily = Inter, fontSize = 14.sp, lineHeight = 20.sp,
+        fontFeatureSettings = TABULAR, color = Mm.Ink2,
+    )
+
+    /** Stat tile value — tabular. */
+    val statValue = TextStyle(
+        fontFamily = Inter, fontSize = 16.sp, lineHeight = 22.sp,
+        fontWeight = FontWeight.Medium, fontFeatureSettings = TABULAR, color = Mm.Ink,
+    )
 }
 
-private val LightColors = lightColorScheme(
-    primary = Mm.Primary,
-    onPrimary = Mm.Surface,
-    background = Mm.Bg,
-    onBackground = Mm.Ink,
-    surface = Mm.Surface,
-    onSurface = Mm.Ink,
-    surfaceVariant = Mm.Bg,
-    onSurfaceVariant = Mm.Ink70,
-    outline = Mm.Ink15,
-    outlineVariant = Mm.Ink10,
-    error = Mm.Primary,
-    onError = Mm.Surface,
-)
-
-/** The app theme: one fixed palette, exactly like the reference. */
+/** The app theme: one fixed palette, no default Material colours. */
 @Composable
 fun MeasureMeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = LightColors,
+        colorScheme = lightColorScheme(
+            primary = Mm.Accent,
+            onPrimary = Mm.OnAccent,
+            background = Mm.Paper,
+            onBackground = Mm.Ink,
+            surface = Mm.Surface,
+            onSurface = Mm.Ink,
+            surfaceVariant = Mm.Inset,
+            onSurfaceVariant = Mm.Ink2,
+            outline = Mm.LineStrong,
+            outlineVariant = Mm.Line,
+            error = Mm.Accent,
+            onError = Mm.OnAccent,
+        ),
         typography = Typography(),
         content = content,
     )

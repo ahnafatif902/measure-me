@@ -17,6 +17,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,12 +31,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -51,14 +50,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.common.util.concurrent.ListenableFuture
-import com.measureme.app.ui.components.MmButton
-import com.measureme.app.ui.components.MmButtonVariant
+import com.measureme.app.ui.components.MmIconButton
+import com.measureme.app.ui.components.MmSecondaryButton
 import com.measureme.app.ui.icons.MmIcons
 import com.measureme.app.ui.theme.Mm
+import com.measureme.app.ui.theme.MmShapes
 import com.measureme.app.ui.theme.MmType
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.ExecutionException
@@ -66,10 +67,9 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Screen 2 — the camera. Same CameraX plumbing as before the redesign:
- * back camera, MINIMIZE_LATENCY stills, Photo Picker for the gallery.
- * Re-styled to the reference's language: a dark 3:4 frame, pill buttons,
- * and a primary shutter.
+ * The camera: back camera preview with CameraX, MINIMIZE_LATENCY stills, and
+ * the Photo Picker for the gallery. Restyled to the v1.0 language — the same
+ * dark frame, now with the accent shutter and a secondary Choose photo.
  */
 @Composable
 fun CameraScreen(
@@ -84,11 +84,11 @@ fun CameraScreen(
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED
+                PackageManager.PERMISSION_GRANTED,
         )
     }
     val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
+        ActivityResultContracts.RequestPermission(),
     ) { granted -> hasCameraPermission = granted }
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -96,7 +96,7 @@ fun CameraScreen(
 
     // ---- gallery picker (Photo Picker: no storage permission needed) ------
     val galleryLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
+        ActivityResultContracts.PickVisualMedia(),
     ) { uri -> if (uri != null) onPhotoPicked(uri) }
 
     // ---- CameraX wiring ----------------------------------------------------
@@ -123,10 +123,10 @@ fun CameraScreen(
             imageCapture = capture
             provider.unbindAll()
             provider.bindToLifecycle(
-                lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture
+                lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture,
             )
         } catch (t: Throwable) {
-            cameraError = "Camera unavailable — you can still pick a photo from the gallery."
+            cameraError = "Camera unavailable — you can still choose a photo from the gallery."
         }
     }
     DisposableEffect(Unit) {
@@ -143,7 +143,7 @@ fun CameraScreen(
                     override fun onError(exception: ImageCaptureException) {
                         cameraError = "Capture failed: ${exception.message}"
                     }
-                }
+                },
             )
         }
     }
@@ -151,68 +151,60 @@ fun CameraScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Mm.Bg)
             .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
+            .padding(horizontal = 20.dp),
     ) {
+        Spacer(Modifier.height(16.dp))
+
         // ---- top bar -------------------------------------------------------
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Mm.Surface)
-                    .border(1.dp, Mm.Ink15, CircleShape)
-                    .clickable(enabled = !working, onClick = onBack),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Mm.Ink,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            Spacer(Modifier.width(12.dp))
+            MmIconButton(
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                onClick = onBack,
+            )
+            Spacer(Modifier.width(14.dp))
             Column {
-                Text("Take a photo", style = MmType.panelTitle)
-                Text("Full body, head to feet", style = MmType.status)
+                Text("Take a photo", style = MmType.wordmark)
+                Text("Head to feet in frame", style = MmType.caption)
             }
         }
 
         Spacer(Modifier.height(16.dp))
 
         // ---- the dark preview frame ---------------------------------------
-        val shape = RoundedCornerShape(24.dp)
-        Box(Modifier.fillMaxWidth().shadow(1.dp, shape).clip(shape).background(Mm.Ink)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .shadow(10.dp, MmShapes.Viewfinder, clip = false, ambientColor = Mm.Shadow, spotColor = Mm.Shadow)
+                .clip(MmShapes.Viewfinder)
+                .background(Mm.Ink),
+        ) {
             Box(Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
-                when {
-                    hasCameraPermission && cameraError == null -> {
-                        AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
-                    }
-                    else -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                cameraError ?: "Camera permission needed to take a photo.",
-                                style = MmType.frameCopy,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                if (hasCameraPermission && cameraError == null) {
+                    AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            cameraError ?: "Camera permission needed to take a photo.",
+                            style = MmType.body2.copy(color = Mm.Surface),
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        if (!hasCameraPermission) {
+                            MmSecondaryButton(
+                                label = "Allow camera",
+                                onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
                             )
-                            Spacer(Modifier.height(12.dp))
-                            if (!hasCameraPermission) {
-                                MmButton(
-                                    label = "Allow camera",
-                                    onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-                                )
-                            }
                         }
                     }
                 }
 
-                // decoding overlay — shown while the captured photo is processed
+                // decoding overlay — shown while the captured photo is read
                 if (working) {
                     Box(
                         modifier = Modifier.fillMaxSize().background(Mm.Ink.copy(alpha = 0.6f)),
@@ -220,12 +212,12 @@ fun CameraScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(
-                                color = Mm.Surface80,
+                                color = Mm.Accent,
                                 modifier = Modifier.size(28.dp),
                                 strokeWidth = 3.dp,
                             )
                             Spacer(Modifier.height(12.dp))
-                            Text("Reading the photo…", style = MmType.frameCopy)
+                            Text("Reading the photo…", style = MmType.body2.copy(color = Mm.Surface))
                         }
                     }
                 }
@@ -234,30 +226,28 @@ fun CameraScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // ---- controls: gallery · shutter · (balance) ----------------------
+        // ---- controls: choose photo · shutter ------------------------------
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                MmButton(
-                    label = "Gallery",
-                    variant = MmButtonVariant.Secondary,
-                    icon = MmIcons.ImagePlus,
-                    enabled = !working,
-                    onClick = {
-                        galleryLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    },
-                )
-            }
+            MmSecondaryButton(
+                label = "Choose photo",
+                icon = MmIcons.ImagePlus,
+                enabled = !working,
+                onClick = {
+                    galleryLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(16.dp))
             ShutterButton(enabled = imageCapture != null && !working, onClick = shutter)
-            Box(Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(16.dp))
 
         Text(
             "Head to feet in frame, a little margin, even light, and hold the phone level.",
-            style = MmType.status,
+            style = MmType.caption,
         )
     }
 }
@@ -269,11 +259,11 @@ private fun ShutterButton(enabled: Boolean, onClick: () -> Unit) {
             .size(72.dp)
             .alpha(if (enabled) 1f else Mm.DisabledAlpha)
             .clip(CircleShape)
-            .background(Mm.Primary)
+            .background(Mm.Accent)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.size(28.dp).border(3.dp, Mm.Surface, CircleShape))
+        Box(Modifier.size(28.dp).border(3.dp, Mm.OnAccent, CircleShape))
     }
 }
 
@@ -290,6 +280,6 @@ private suspend fun <T> ListenableFuture<T>.awaitFuture(context: Context): T =
                     cont.resumeWithException(t)
                 }
             },
-            ContextCompat.getMainExecutor(context)
+            ContextCompat.getMainExecutor(context),
         )
     }

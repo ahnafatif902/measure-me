@@ -1,24 +1,17 @@
 package com.measureme.app
 
 import android.app.Application
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.measureme.app.capture.ImageCaptureModule
-import com.measureme.app.detect.PoseDetectionModule
-import com.measureme.app.pipeline.AppConstants
-import com.measureme.app.pipeline.ConfidenceModule
-import com.measureme.app.pipeline.GeometryModule
-import com.measureme.app.pipeline.HeightEstimate
-import com.measureme.app.pipeline.ImageStats
-import com.measureme.app.pipeline.ManualFallbackModule
-import com.measureme.app.pipeline.MeasureMeException
-import com.measureme.app.pipeline.PoseLandmarks
-import com.measureme.app.pipeline.Px
-import com.measureme.app.ui.components.ManualMarker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -26,476 +19,218 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * MeasureMeViewModel — orchestrates the pipeline:
+ * MeasureMeViewModel — the state machine behind Home → Capture → Processing
+ * → Result (PRD §5). The UI is a pure function of [UiState]; there is no
+ * navigation library, the state IS the navigation.
  *
- *   photo → ImageCaptureModule → PoseDetectionModule → GeometryModule.derive
- *         → GeometryModule.estimate → ConfidenceModule → UiState → screen
- *
- * The UI is a pure function of UiState; the single design page renders every
- * state inline (photo, manual marks, result, failure), exactly like the
- * reference layout. No database, no accounts: state dies with the process.
+ * Photo intake is real (camera / photo picker / the bundled sample). The
+ * measuring backend is stubbed for now: [measure] walks the three real pipeline
+ * stages as a timer and [stubResult] returns the UI Spec's placeholder values,
+ * so the whole flow runs end-to-end while the geometry lands.
  */
 class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
 
-    enum class Screen { MEASURE, CAMERA }
+    enum class Screen { HOME, CAPTURE, CAMERA, RESULT }
 
-    data class FailureInfo(
-        val title: String,
-        val message: String,
-        val tips: List<String>,
-        val canManual: Boolean,
+    /** The three measuring modes (PRD §4). Default: Proportions. */
+    enum class Mode(val label: String) {
+        PROPORTIONS("Proportions"),
+        HORIZON("Horizon"),
+        REFERENCE("Reference"),
+    }
+
+    /**
+     * Stubbed result — mirrors the pipeline's HeightEstimate + Report shape.
+     * Values are the UI Spec §11 placeholders (167 cm, 161–173, 92/100, 7.3 heads).
+     */
+    data class Result(
+        val heightCm: Int,
+        val rangeLowCm: Int,
+        val rangeHighCm: Int,
+        val quality: Int,
+        val qualityLabel: String,
+        val headsTall: Double,
+        val personPx: Int,
+        val headPx: Int,
+        val ftInText: String,
     )
 
     data class UiState(
-        val screen: Screen = Screen.MEASURE,
-        val bitmap: Bitmap? = null,
-        val imageStats: ImageStats? = null,
-        /** The detector is running (busy card). */
-        val working: Boolean = false,
-        /** A photo is being loaded/decoded (the reference's separate decoding flag). */
-        val decoding: Boolean = false,
-        val estimate: HeightEstimate? = null,
-        val landmarks: PoseLandmarks? = null,
-        val fromManual: Boolean = false,
-        val failure: FailureInfo? = null,
-        /** Small inline note near the estimate button (the reference's runError). */
-        val notice: String? = null,
-        val averageHeadCm: Double = AppConstants.AVERAGE_HEAD_CM,
-        val heads: Double = AppConstants.BODY_TO_HEAD_RATIO,
-        val showDebug: Boolean = false,
-        // --- manual marking: inline on the frame, reference-style ---
-        val manualInput: Boolean = false,
-        val manualCrown: Px? = null,
-        val manualChin: Px? = null,
-        val manualFeet: Px? = null,
-        val manualChinAdjusted: Boolean = false,
-        /** Bumped on every press of "Estimate height"; the page scrolls the result into view. */
-        val resultNonce: Long = 0L,
+        val screen: Screen = Screen.HOME,
+        val mode: Mode = Mode.PROPORTIONS,
+        val photo: Bitmap? = null,
+        /** A photo is being decoded (camera screen shows its own busy overlay). */
+        val loading: Boolean = false,
+        /** The capture screen is showing the processing view. */
+        val processing: Boolean = false,
+        /** Completed pipeline stages, 0..3 — drives the progress bar and step rows. */
+        val step: Int = 0,
+        val result: Result? = null,
+        /** One specific, fixable reason when a photo cannot be used (FR-2). */
+        val failReason: String? = null,
     )
 
-    private val _ui = MutableStateFlow(UiState())
+    private val prefs = app.getSharedPreferences("measureme", Context.MODE_PRIVATE)
+    private val capture = ImageCaptureModule(app)
+    private var measureJob: Job? = null
+
+    private val _ui = MutableStateFlow(UiState(mode = loadMode()))
     val ui: StateFlow<UiState> = _ui
 
-    private val geometry = GeometryModule()
-    private val confidence = ConfidenceModule()
-    private val detector = PoseDetectionModule()
-    private val capture = ImageCaptureModule(app)
-    private val manual = ManualFallbackModule(geometry, confidence)
-
     // ------------------------------------------------------------------
-    // Photo intake
+    // Navigation
     // ------------------------------------------------------------------
 
-    /** Gallery import (Photo Picker / OpenDocument Uri). */
-    fun onPhotoPicked(uri: Uri) {
-        viewModelScope.launch { loadPhoto { capture.decodeUri(uri) } }
+    /** Mode selection persists across launches (PRD §5: stores last-used mode). */
+    fun selectMode(mode: Mode) {
+        prefs.edit().putString(KEY_MODE, mode.name).apply()
+        _ui.update { if (it.processing) it else it.copy(mode = mode) }
     }
 
-    /** CameraX still capture. */
+    fun continueToCapture() = _ui.update {
+        if (it.processing) it else it.copy(screen = Screen.CAPTURE, failReason = null)
+    }
+
+    fun backToHome() = _ui.update { if (it.processing) it else it.copy(screen = Screen.HOME) }
+
+    fun goCamera() = _ui.update {
+        if (it.processing) it else it.copy(screen = Screen.CAMERA, failReason = null)
+    }
+
+    fun cameraBack() = _ui.update { if (it.processing) it else it.copy(screen = Screen.CAPTURE) }
+
+    /** Result → Capture with the photo kept, ready for another run. */
+    fun measureAgain() = _ui.update {
+        it.copy(screen = Screen.CAPTURE, result = null, step = 0)
+    }
+
+    // ------------------------------------------------------------------
+    // Photo intake (real, not stubbed)
+    // ------------------------------------------------------------------
+
+    fun onPhotoPicked(uri: Uri) {
+        viewModelScope.launch { load { capture.decodeUri(uri) } }
+    }
+
     fun onPhotoCaptured(proxy: ImageProxy) {
         viewModelScope.launch {
             try {
-                loadPhoto { capture.fromImageProxy(proxy) }
+                load { capture.fromImageProxy(proxy) }
             } finally {
                 proxy.close()
             }
         }
     }
 
-    /** "Try a sample photo": the reference's own bundled photo. */
+    /** "Use a sample": the app's own bundled photo. */
     fun useSamplePhoto() {
-        viewModelScope.launch { loadPhoto { capture.decodeSample() } }
+        viewModelScope.launch { load { capture.decodeSample() } }
     }
 
-    private suspend fun loadPhoto(decode: () -> Bitmap) {
-        _ui.update { it.copy(decoding = true, failure = null) }
+    private suspend fun load(decode: () -> Bitmap) {
+        _ui.update { it.copy(loading = true, failReason = null) }
         try {
             val bmp = withContext(Dispatchers.IO) { decode() }
-            val stats = withContext(Dispatchers.IO) { capture.stats(bmp) }
             _ui.update {
                 it.copy(
-                    bitmap = bmp, imageStats = stats, decoding = false,
-                    screen = Screen.MEASURE,
-                    estimate = null, landmarks = null, fromManual = false,
-                    failure = null, notice = null,
-                    manualCrown = null, manualChin = null, manualFeet = null,
-                    manualChinAdjusted = false,
+                    photo = bmp, loading = false, processing = false, step = 0,
+                    result = null, screen = Screen.CAPTURE,
                 )
             }
-        } catch (e: MeasureMeException) {
-            fail(e)
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // The Estimate button (routes to the automatic or the manual path)
-    // ------------------------------------------------------------------
-
-    fun estimate() {
-        if (_ui.value.manualInput) estimateManual() else estimateAuto()
-    }
-
-    private fun estimateManual() {
-        val state = _ui.value
-        if (state.bitmap == null) return
-        if (state.manualCrown == null || state.manualFeet == null) {
-            _ui.update { it.copy(notice = "Tap the top of the head, then the bottom of the feet.") }
-            return
-        }
-        recomputeManual(scroll = true)
-    }
-
-    private fun estimateAuto() {
-        val bmp = _ui.value.bitmap ?: return
-        viewModelScope.launch {
-            _ui.update {
-                it.copy(working = true, failure = null, estimate = null, landmarks = null, notice = null)
-            }
-            try {
-                val stats = _ui.value.imageStats
-                    ?: withContext(Dispatchers.IO) { capture.stats(bmp) }
-                if (_ui.value.imageStats == null) _ui.update { it.copy(imageStats = stats) }
-
-                // 1. on-device pose detection
-                val detection = detector.detect(bmp)
-
-                // 2. landmarks → head point, chin, feet point
-                val landmarks = geometry.derive(detection.landmarks, bmp.width, bmp.height)
-                if (landmarks.headTop == null || landmarks.feet == null) {
-                    throw MeasureMeException.PoseIncomplete(
-                        missingFace = landmarks.headTop == null,
-                        missingFeet = landmarks.feet == null,
-                    )
-                }
-
-                // 3. the formula
-                val raw = geometry.estimate(landmarks, _ui.value.averageHeadCm, _ui.value.heads)
-
-                // 4. sanity: an "impossible" height means the photo is not
-                //    measurable — treat it as a failure with recovery tips.
-                if (!raw.ok || raw.heightCm < AppConstants.HEIGHT_HARD_MIN_CM ||
-                    raw.heightCm > AppConstants.HEIGHT_HARD_MAX_CM
-                ) {
-                    fail(
-                        MeasureMeException.PoseIncomplete(missingFace = false, missingFeet = false),
-                        overrideMessage = "The proportions in this photo don't add up " +
-                            "(≈${raw.heightCm.toInt()} cm). The person may be too small in frame, " +
-                            "cut off, or not standing straight.",
-                    )
-                    return@launch
-                }
-
-                // 5. transparent confidence
-                val report = confidence.compute(landmarks, raw, stats)
-                _ui.update {
-                    it.copy(
-                        estimate = raw.copy(
-                            confidence = report.breakdown,
-                            buckets = report.buckets,
-                            expectedErrorCm = report.adjustedErrorCm,
-                        ),
-                        landmarks = landmarks,
-                        fromManual = false,
-                        working = false,
-                        resultNonce = it.resultNonce + 1,
-                    )
-                }
-            } catch (e: MeasureMeException) {
-                fail(e)
-            } catch (t: Throwable) {
-                fail(MeasureMeException.DetectorUnavailable(t))
-            } finally {
-                _ui.update { it.copy(working = false) }
-            }
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Manual marking (crown + feet taps, draggable derived chin)
-    // ------------------------------------------------------------------
-
-    fun toggleManual() {
-        _ui.update { state ->
-            state.copy(
-                manualInput = !state.manualInput,
-                estimate = null, landmarks = null, failure = null,
-                fromManual = false, notice = null,
-            )
-        }
-    }
-
-    /** The failure card's "Mark points yourself" — always turns manual ON. */
-    fun enterManual() {
-        _ui.update { state ->
-            state.copy(
-                manualInput = true,
-                estimate = null, landmarks = null, failure = null,
-                fromManual = false, notice = null,
-            )
-        }
-    }
-
-    fun manualPlace(p: Px) {
-        _ui.update { state ->
-            if (!state.manualInput) return@update state
-            when {
-                state.manualCrown == null -> state.copy(manualCrown = p, notice = null)
-                state.manualFeet == null -> state.copy(manualFeet = p, notice = null)
-                else -> state
-            }
-        }
-        recomputeManual(scroll = false)
-    }
-
-    fun manualDrag(marker: ManualMarker, p: Px) {
-        _ui.update { state ->
-            if (!state.manualInput) return@update state
-            when (marker) {
-                ManualMarker.CROWN -> state.copy(manualCrown = p, notice = null)
-                ManualMarker.FEET -> state.copy(manualFeet = p, notice = null)
-                ManualMarker.CHIN -> state.copy(manualChin = p, manualChinAdjusted = true, notice = null)
-            }
-        }
-        recomputeManual(scroll = false)
-    }
-
-    /**
-     * Live manual measurement — pure maths, so it runs on every tap/drag and
-     * the estimate updates as the user moves the markers (like the reference).
-     */
-    private fun recomputeManual(scroll: Boolean) {
-        val state = _ui.value
-        val bmp = state.bitmap ?: return
-        val stats = state.imageStats ?: return
-        val crown = state.manualCrown
-        val feet = state.manualFeet
-
-        if (crown == null || feet == null) {
-            _ui.update { it.copy(estimate = null, landmarks = null, failure = null) }
-            return
-        }
-
-        val chinPoint = if (state.manualChinAdjusted && state.manualChin != null) {
-            state.manualChin
-        } else {
-            manual.derivedChin(crown, feet, state.heads)
-        }
-        val problem = manual.validate(crown, chinPoint, feet, bmp.height)
-        if (problem != null) {
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c // never swallow cancellation
+        } catch (t: Throwable) {
+            Log.w(TAG, "Photo intake failed", t)
+            // FR-2: one specific, fixable reason (spec §7 error copy rules).
             _ui.update {
                 it.copy(
-                    estimate = null, landmarks = null,
-                    failure = FailureInfo(
-                        title = "Couldn't measure that photo",
-                        message = problem,
-                        tips = TIPS,
-                        canManual = false,
-                    ),
+                    loading = false,
+                    failReason = "That photo could not be read. Try another one.",
+                    screen = Screen.CAPTURE,
                 )
             }
-            return
-        }
-
-        val outcome = manual.measure(
-            crown = crown,
-            chin = state.manualChin,
-            chinAdjusted = state.manualChinAdjusted,
-            feet = feet,
-            imageW = bmp.width,
-            imageH = bmp.height,
-            averageHeadCm = state.averageHeadCm,
-            heads = state.heads,
-            image = stats,
-        )
-        _ui.update {
-            it.copy(
-                estimate = outcome.estimate,
-                landmarks = outcome.landmarks,
-                fromManual = true,
-                failure = null,
-                notice = null,
-                resultNonce = if (scroll) it.resultNonce + 1 else it.resultNonce,
-            )
         }
     }
 
     // ------------------------------------------------------------------
-    // The two anthropometric constants (both live on the design's sliders)
+    // Processing — the three PRD stages, currently a staged timer
     // ------------------------------------------------------------------
 
-    fun setAverageHeadCm(value: Double) {
-        _ui.update { it.copy(averageHeadCm = value.coerceIn(AppConstants.HEAD_CM_MIN, AppConstants.HEAD_CM_MAX)) }
-        retune()
-    }
+    fun measure() {
+        if (_ui.value.photo == null || _ui.value.processing) return
+        measureJob?.cancel()
+        measureJob = viewModelScope.launch {
+            _ui.update { it.copy(processing = true, step = 0, failReason = null, result = null) }
 
-    fun setHeads(value: Double) {
-        _ui.update { it.copy(heads = value.coerceIn(AppConstants.HEADS_MIN, AppConstants.HEADS_MAX)) }
-        retune()
-    }
+            // PRD §5: find person → locate head and feet → work out the scale,
+            // under 3 s on a mid-range phone. The real pipeline replaces the
+            // delays stage by stage (UI Spec §8: no fake progress).
+            listOf(650L, 650L, 700L).forEachIndexed { index, ms ->
+                delay(ms)
+                _ui.update { it.copy(step = index + 1) }
+            }
+            delay(200)
 
-    /**
-     * Re-runs the formula on the stored points (not the whole detection), so
-     * the effect is instant — and it works for both paths.
-     */
-    private fun retune() {
-        if (_ui.value.manualInput) {
-            recomputeManual(scroll = false)
-            return
-        }
-        val state = _ui.value
-        val landmarks = state.landmarks ?: return
-        val stats = state.imageStats ?: return
-        if (state.estimate == null) return
-        val raw = geometry.estimate(landmarks, state.averageHeadCm, state.heads)
-        val report = confidence.compute(landmarks, raw, stats)
-        _ui.update {
-            it.copy(
-                estimate = raw.copy(
-                    confidence = report.breakdown,
-                    buckets = report.buckets,
-                    expectedErrorCm = report.adjustedErrorCm,
-                )
-            )
+            // ------------------------------------------------------------------
+            // TODO: Wire up GeometryEngine — replace stubResult() with the real
+            // pipeline: detector.detect(photo) → geometry.derive(...) →
+            // geometry.estimate(...) → confidence.compute(...). The quality gate
+            // (FR-2) and its one-line failure reasons belong here too.
+            // ------------------------------------------------------------------
+            val result = stubResult()
+            _ui.update { it.copy(result = result, processing = false, screen = Screen.RESULT) }
         }
     }
 
-    fun setShowDebug(enabled: Boolean) {
-        _ui.update { it.copy(showDebug = enabled) }
+    /** UI Spec §11 placeholders — replaced when the pipeline is wired up. */
+    private fun stubResult(): Result = Result(
+        heightCm = 167,
+        rangeLowCm = 161,
+        rangeHighCm = 173,
+        quality = 92,
+        qualityLabel = "Clean shot",
+        headsTall = 7.3,
+        personPx = 1400,
+        headPx = 193,
+        ftInText = "5 ft 6 in",
+    )
+
+    private fun loadMode(): Mode = runCatching {
+        Mode.valueOf(prefs.getString(KEY_MODE, Mode.PROPORTIONS.name)!!)
+    }.getOrDefault(Mode.PROPORTIONS)
+
+    // ------------------------------------------------------------------
+    // DEBUG-ONLY entry points for automated on-device verification:
+    //
+    //   adb shell am start -n com.measureme.app/.MainActivity \
+    //       --es debug_screen result
+    //   adb shell am start -n com.measureme.app/.MainActivity \
+    //       --es debug_photo /sdcard/Android/data/com.measureme.app/files/test.jpg
+    // ------------------------------------------------------------------
+
+    fun debugJump(target: String) {
+        when (target.lowercase()) {
+            "home" -> _ui.update { it.copy(screen = Screen.HOME) }
+            "capture" -> _ui.update { it.copy(screen = Screen.CAPTURE, processing = false) }
+            "result" -> _ui.update {
+                it.copy(result = stubResult(), processing = false, step = 3, screen = Screen.RESULT)
+            }
+        }
     }
 
-    // ------------------------------------------------------------------
-    // Navigation helpers
-    // ------------------------------------------------------------------
-
-    fun goCamera() = _ui.update { if (it.working || it.decoding) it else it.copy(screen = Screen.CAMERA) }
-
-    /** Leaving the camera without taking a photo (system back / the back arrow). */
-    fun goMeasure() = _ui.update { if (it.working || it.decoding) it else it.copy(screen = Screen.MEASURE) }
-
-    // ------------------------------------------------------------------
-
-    /**
-     * DEBUG-ONLY entry point for automated on-device verification (no UI taps):
-     *
-     *   adb shell am start -n com.measureme.app/.MainActivity \
-     *       --es debug_photo /sdcard/Android/data/com.measureme.app/files/test.jpg
-     *
-     * Loads the photo and runs the complete automatic pipeline so the result
-     * can be screenshotted from CI or a terminal. `debug_manual` additionally
-     * opens manual marking; `debug_marks` places the reference sample's own
-     * tap points so the overlay can be compared against the design captures.
-     * Wired up only when BuildConfig.DEBUG is true (see MainActivity).
-     */
-    fun loadDebugPhoto(path: String, manualMode: Boolean = false, marks: Boolean = false) {
+    fun debugPhoto(path: String) {
+        Log.d(TAG, "debugPhoto: $path")
         viewModelScope.launch {
-            loadPhoto { capture.decodeUri(Uri.fromFile(java.io.File(path))) }
-            if (_ui.value.bitmap == null) return@launch // decode failed → failure card
-            if (manualMode) {
-                _ui.update { it.copy(manualInput = true) }
-                if (marks) placeDebugMarks()
-            } else {
-                estimateAuto()
+            load {
+                if (path == "sample") capture.decodeSample()
+                else capture.decodeFile(java.io.File(path))
             }
+            if (_ui.value.photo != null) measure()
         }
-    }
-
-    /** The reference sample photo's own crown/chin/feet points (1152×1728 space). */
-    private fun placeDebugMarks() {
-        val bmp = _ui.value.bitmap ?: return
-        val sx = bmp.width / 1152f
-        val sy = bmp.height / 1728f
-        _ui.update {
-            it.copy(
-                manualCrown = Px(565f * sx, 137.4f * sy),
-                manualChin = Px(565f * sx, 330.4f * sy),
-                manualFeet = Px(662f * sx, 1537.8f * sy),
-                manualChinAdjusted = true,
-            )
-        }
-        recomputeManual(scroll = false)
-    }
-
-    private fun fail(e: MeasureMeException, overrideMessage: String? = null) {
-        val info = when (e) {
-            is MeasureMeException.NoPoseFound -> FailureInfo(
-                title = "No person detected",
-                message = "The on-device model could not find a full body in this photo.",
-                tips = listOf(
-                    "Stand farther back so your whole body fits in the frame",
-                    "Face the camera with even lighting",
-                    "Avoid busy backgrounds and heavy shadow",
-                ),
-                canManual = true,
-            )
-            is MeasureMeException.PoseIncomplete -> FailureInfo(
-                title = "Full body not visible",
-                message = overrideMessage ?: e.message.orEmpty(),
-                tips = buildList {
-                    add("Head to feet in frame, with a little margin")
-                    if (e.missingFeet) {
-                        add("Stand farther back or tilt the phone slightly down to catch your feet")
-                        add("Hold the phone around waist height")
-                    }
-                    if (e.missingFace) {
-                        add("Face the camera — profile shots hide the face")
-                        add("Remove hats/hoods that cover the head")
-                    }
-                    add("Brighter, even lighting")
-                    add("Stand straight, arms relaxed")
-                },
-                canManual = true,
-            )
-            is MeasureMeException.DetectTimeout -> FailureInfo(
-                title = "Detection timed out",
-                message = "Your phone took too long to analyse this photo.",
-                tips = listOf(
-                    "Close other apps and retry",
-                    "Try a smaller/simpler photo",
-                    "Or mark the points manually — it works without the model",
-                ),
-                canManual = true,
-            )
-            is MeasureMeException.DetectorUnavailable -> FailureInfo(
-                title = "Pose model failed",
-                message = "The on-device model could not run on this photo.",
-                tips = listOf(
-                    "Retry once — this is often transient",
-                    "Restart the app if it keeps happening",
-                    "Manual marking works without the model",
-                ),
-                canManual = true,
-            )
-            is MeasureMeException.ImageUnreadable -> FailureInfo(
-                title = "Photo could not be read",
-                message = e.message.orEmpty(),
-                tips = listOf(
-                    "Pick a different photo (JPG or PNG)",
-                    "Or take a new one with the camera",
-                ),
-                canManual = false,
-            )
-        }
-        _ui.update {
-            it.copy(
-                failure = info, screen = Screen.MEASURE, working = false, decoding = false,
-                estimate = null, landmarks = null, fromManual = false,
-            )
-        }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        detector.close()
     }
 
     companion object {
-        /** Recovery tips for a hand-marked measurement that cannot be measured (the reference's TIPS). */
-        val TIPS: List<String> = listOf(
-            "Stand farther back so the top of your head and both shoes are fully in frame.",
-            "Face the camera, arms a little away from your sides.",
-            "Stand up straight on a level floor.",
-            "Use even light. Avoid a bright window behind you.",
-            "Hold the camera roughly level, not tilted.",
-        )
+        private const val KEY_MODE = "mode"
+        private const val TAG = "MeasureMe"
     }
 }
