@@ -1,0 +1,67 @@
+// app/build.gradle.kts — the only module. Dependencies are deliberately few:
+//  * compose-bom      → UI toolkit (screens declared once, state-driven)
+//  * camera-*         → CameraX preview + still capture (no ARCore, by design)
+//  * pose-detection   → ML Kit BlazePose, BUNDLED model → works fully offline
+//  * exifinterface    → rotate gallery photos the right way up
+//  * lifecycle/activity-compose → ViewModel + single-activity plumbing
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.measureme.app"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.measureme.app"
+        minSdk = 24          // covers essentially every mid-range Android in use
+        targetSdk = 34
+        versionCode = 2
+        versionName = "2.0"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false // MVP: keep it debuggable; enable for store builds
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
+    buildFeatures {
+        compose = true
+        buildConfig = true // for the debug-only automated test hook (BuildConfig.DEBUG)
+    }
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" } // == Kotlin 1.9.24
+    packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+}
+
+dependencies {
+    implementation(platform("androidx.compose:compose-bom:2024.05.00"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    implementation("androidx.core:core-ktx:1.13.1")
+
+    // Camera (preview + still capture). No ARCore, no depth APIs anywhere.
+    val camerax = "1.3.4"
+    implementation("androidx.camera:camera-core:$camerax")
+    implementation("androidx.camera:camera-camera2:$camerax")
+    implementation("androidx.camera:camera-lifecycle:$camerax")
+    implementation("androidx.camera:camera-view:$camerax")
+
+    // On-device pose estimation. "pose-detection" bundles the model INSIDE the
+    // app (~30 MB) so detection works offline right after install.
+    implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
+
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // JVM unit tests for the pure-Kotlin pipeline (GeometryModule etc.).
+    testImplementation("junit:junit:4.13.2")
+}

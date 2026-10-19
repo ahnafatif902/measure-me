@@ -1,0 +1,8 @@
+[
+  ["open", "file:///D:/MeasureMe/index.html"],
+  ["set", "viewport", "390", "844"],
+  ["wait", "--fn", "typeof window.MM !== 'undefined' && !!window.MM.app"],
+  ["eval", "(async () => { try { const c = document.createElement('canvas'); c.width = 200; c.height = 300; const g = c.getContext('2d'); g.fillStyle = '#888'; g.fillRect(0, 0, 200, 300); await MM.app.testing.loadFromUrl(c.toDataURL('image/png'), 'gray.png'); await MM.app.testing.runAuto(); return 'phase=' + MM.app.testing.state().phase; } catch (e) { return 'THREW: ' + (e && e.message || e); } })()"],
+  ["eval", "(async () => { await MM.app.testing.loadFromUrl('file:///D:/MeasureMe/.test/photo5.jpg', 'p.jpg').catch(e => 'fetch-fail: ' + e.message); if (!MM.app.testing.state || true) { try { await MM.app.testing.loadFromUrl('file:///D:/MeasureMe/.test/photo5.jpg'); await MM.app.testing.runAuto(); return 'photo5 phase=' + MM.app.testing.state().phase + ' cm=' + (MM.app.testing.state().estimate || {}).cm; } catch (e) { return 'photo5 auto failed: ' + e.message; } } })()"],
+  ["errors"]
+]

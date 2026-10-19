@@ -1,0 +1,58 @@
+@import "tailwindcss";
+@import "./fonts.css";
+
+/* ---------------------------------------------------------------------------
+   Design tokens — copied 1:1 from the reference build's Tailwind v4 theme.
+   These exact values were byte-verified against the app source and its
+   screenshots; the whole UI is built from them via Tailwind utilities
+   (bg-bg, text-ink/60, bg-ink, text-surface, bg-primary, font-display, …).
+
+   If you prefer the hex values from the standalone design brief instead,
+   swap the four colors below for these:
+     --color-bg:      #f4f1ea   (brief)   vs #efe8dc (verified)
+     --color-surface: #f9f7f3   (brief)   vs #fbf7f0 (verified)
+     --color-ink:     #2a2421   (brief)   vs #1c1712 (verified)
+     --color-primary: #b4451c   (brief)   vs #b8431f (verified)
+   The brief's dark hero card (#2b2b2b) is the frame card, i.e. `bg-ink`;
+   "Hero Text" #ffffff/#a3a3a3 are text-surface and text-surface/75 (and the
+   verified ink reads warmer than #2b2b2b on purpose).
+--------------------------------------------------------------------------- */
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --color-bg: #efe8dc;
+  --color-surface: #fbf7f0;
+  --color-ink: #1c1712;
+  --color-primary: #b8431f;
+  --radius-card: 1.5rem;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  input[type="range"] {
+    accent-color: var(--color-primary);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}

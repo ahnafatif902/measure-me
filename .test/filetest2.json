@@ -1,0 +1,7 @@
+[
+  ["open", "file:///D:/MeasureMe/index.html"],
+  ["set", "viewport", "390", "844"],
+  ["wait", "--fn", "typeof window.MM !== 'undefined' && !!window.MM.app"],
+  ["eval", "(async () => { const c = document.createElement('canvas'); c.width = 200; c.height = 300; const g = c.getContext('2d'); g.fillStyle = '#888'; g.fillRect(0, 0, 200, 300); await MM.app.testing.loadFromUrl(c.toDataURL('image/png'), 'gray.png'); const t0 = Date.now(); await MM.app.testing.runAuto(); return JSON.stringify({ phase: MM.app.testing.state().phase, title: document.getElementById('errorTitle').textContent, tookMs: Date.now() - t0, status: document.getElementById('statusText') ? 'n/a' : 'n/a' }); })()"],
+  ["errors"]
+]

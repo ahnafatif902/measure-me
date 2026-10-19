@@ -1,0 +1,7 @@
+[
+  ["open", "http://127.0.0.1:8137/"],
+  ["set", "viewport", "390", "844"],
+  ["wait", "--fn", "typeof window.MM !== 'undefined' && !!window.MM.app"],
+  ["eval", "MM.app.testing.loadFromUrl('http://127.0.0.1:8137/.test/photo1.jpg').then(()=>MM.app.testing.runAuto()).then(()=>JSON.stringify(MM.app.testing.state()))"],
+  ["screenshot", "D:\\MeasureMe\\docs\\shots\\02-result.png"]
+]

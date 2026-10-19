@@ -1,0 +1,6 @@
+[
+  ["open", "http://127.0.0.1:8137/"],
+  ["set", "viewport", "390", "844"],
+  ["wait", "--fn", "typeof window.MM !== 'undefined' && !!window.MM.app"],
+  ["eval", "(async () => { await MM.app.testing.loadFromUrl('http://127.0.0.1:8137/.test/photo5.jpg'); const img=document.getElementById('photo'); const r=await MM.detector.detect(img,()=>{}); const lm=r.landmarks; const W=img.naturalWidth,H=img.naturalHeight; const P=(i)=>({i,x:+(lm[i].x*W).toFixed(1),y:+(lm[i].y*H).toFixed(1),v:+lm[i].visibility.toFixed(2)}); return JSON.stringify([P(0),P(2),P(5),P(9),P(10),P(7),P(8),P(11),P(12),P(23),P(24),P(27),P(28),P(31),P(32)]); })()"]
+]

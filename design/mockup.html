@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MeasureMe</title>
+  <meta name="description" content="Estimate standing height from one full-body photo using body proportions. No reference object.">
+  <meta name="theme-color" content="#efe8dc">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Outfit:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+<main class="page">
+  <header class="page-header">
+    <p class="kicker">Proportion estimate</p>
+    <div class="title-row">
+      <span class="glyph" aria-hidden="true"><i class="g-top"></i><i class="g-mid"></i><i class="g-bot"></i></span>
+      <h1 class="title">MeasureMe</h1>
+    </div>
+    <p class="lede">Estimate standing height from one photo. No reference object — only how many head lengths fit in the body.</p>
+  </header>
+
+  <div class="grid">
+    <section class="col-left">
+      <div class="frame-card">
+        <div class="frame" id="frame">
+          <img id="photo" class="photo" alt="Full-body photo used for the height estimate" hidden>
+          <div class="frame-empty" id="frameEmpty">
+            <svg class="icon-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
+            <p class="frame-empty-title">Head to feet, in frame</p>
+            <p class="frame-empty-copy">Stand straight, face the camera, and leave a little room above your hair and below your shoes.</p>
+          </div>
+          <svg id="overlay" class="overlay"></svg>
+        </div>
+      </div>
+
+      <div class="row-2col">
+        <button class="btn btn-secondary btn-full" id="uploadBtn" type="button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+          Upload
+        </button>
+        <button class="btn btn-secondary btn-full" id="cameraBtn" type="button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+          Take photo
+        </button>
+      </div>
+      <input id="fileInput" class="sr-only" type="file" accept="image/*">
+      <input id="cameraInput" class="sr-only" type="file" accept="image/*" capture="environment">
+
+      <div class="row-ghost">
+        <button class="btn btn-ghost btn-ghost-px" id="sampleBtn" type="button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          Try a sample photo
+        </button>
+        <button class="btn btn-ghost btn-ghost-px" id="manualBtn" type="button">Mark points yourself</button>
+      </div>
+
+      <p class="hint" id="hint" hidden></p>
+
+      <button class="btn btn-primary btn-lg estimate" id="estimateBtn" type="button" disabled>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
+        <span id="estimateLabel">Estimate height</span>
+      </button>
+      <p class="status" id="statusLine">Pose detection runs in the browser. The photo is not uploaded.</p>
+    </section>
+
+    <section class="col-right" id="resultRegion">
+      <article class="panel" id="busyCard" hidden>
+        <h2 class="panel-title">Reading the pose</h2>
+        <p class="panel-note">Finding the crown-to-feet span. The first run also finishes loading the pose model.</p>
+      </article>
+
+      <article class="panel" id="resultCard" hidden aria-live="polite">
+        <p class="kicker">Estimated height</p>
+        <p class="big-num"><span id="cmNum">167</span><span class="unit">cm</span></p>
+        <p class="imperial" id="imperial">5 ft 6 in</p>
+        <div class="quality">
+          <div class="quality-row">
+            <span class="quality-label" id="qualityLabel">Good pose</span>
+            <span class="quality-score">Pose quality <span id="qualityScore">92</span> / 100</span>
+          </div>
+          <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="92" id="meter" aria-label="Pose quality, not accuracy">
+            <div class="meter-fill" id="meterFill" style="width:92%"></div>
+          </div>
+          <p class="quality-note">This scores the pose — standing straight, full body in frame, camera roughly level. It is not an accuracy percentage, and it never means certain. Typical error is several centimeters.</p>
+        </div>
+        <dl class="tiles">
+          <div class="tile"><dt>Body span</dt><dd><span id="spanPx">1400</span> px</dd></div>
+          <div class="tile"><dt>Head length</dt><dd><span id="headPx">193</span> px</dd></div>
+        </dl>
+        <p class="stature">Measured stature is <span id="ratioNum">7.3</span> heads. The canonical constant is <span id="canonNum">7.5</span>.</p>
+        <div class="formula-well">
+          <p class="formula-sym">height_cm = (person_pixel_height / head_pixel_height) × average_head_cm</p>
+          <p class="formula-sub" id="formulaSub">(1400 / 193) × 23 = 166.9</p>
+        </div>
+        <p class="explain" id="explain">Head length is the eye-to-mouth distance ÷ 0.28. Eyes are treated as halfway from crown to chin, and the mouth as 78% of head height. The crown sits half a head above the eyes.</p>
+        <ul class="warnings" id="warnings" hidden></ul>
+      </article>
+
+      <article class="panel" id="failCard" hidden aria-live="polite">
+        <div class="fail-head">
+          <svg class="icon-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <div>
+            <h2 class="panel-title panel-title-balance">Couldn't measure that photo</h2>
+            <p class="fail-reason" id="failReason"></p>
+          </div>
+        </div>
+        <ul class="tips" id="failTips"></ul>
+        <button class="btn btn-secondary fail-btn" id="failManualBtn" type="button">Mark points yourself</button>
+      </article>
+
+      <article class="panel" id="emptyCard">
+        <p class="kicker">Estimated height</p>
+        <p class="big-num dash">—</p>
+        <p class="empty-note" id="emptyNote">Add a full-body photo, or try the sample, then estimate.</p>
+      </article>
+
+      <p class="run-note" id="runNote" hidden role="status"></p>
+
+      <article class="panel">
+        <h2 class="panel-title">How the estimate is calculated</h2>
+        <p class="how-formula">height_cm = (person_pixel_height / head_pixel_height) × average_head_cm</p>
+        <p class="how-para">Standing height starts from the constant <span id="howHeads">7.5</span> × head length. Pixel stature is the vertical distance from the crown to the lowest foot point. Head length defaults to <span id="howHeadCm">23</span> cm. Both constants are yours to tune. MediaPipe's 3D pose is not metric, so those units are never treated as centimeters.</p>
+
+        <div class="sliders">
+          <label class="slider" for="canonicalHeads">
+            <span class="slider-row">
+              <span>Canonical stature</span>
+              <span class="slider-value"><span id="headsVal">7.5</span> × head</span>
+            </span>
+            <input id="canonicalHeads" type="range" min="6" max="8.5" step="0.1" value="7.5">
+          </label>
+          <label class="slider" for="headCm">
+            <span class="slider-row">
+              <span>Average head length</span>
+              <span class="slider-value"><span id="headCmVal">23</span> cm</span>
+            </span>
+            <input id="headCm" type="range" min="16" max="32" step="0.5" value="23">
+          </label>
+        </div>
+
+        <ul class="bullets">
+          <li>Eyes are halfway from crown to chin. The mouth is at 78% of head height.</li>
+          <li>Head pixels = eye-to-mouth pixels ÷ 0.28.</li>
+          <li>If the mouth isn't reliable, the nose tip at 63% of head height is used instead.</li>
+          <li>If the face isn't reliable, head pixels = shoulder width ÷ 1.7.</li>
+          <li>If the head still can't be measured, head pixels = body pixels ÷ <span class="heads-inline">7.5</span>, and confidence drops. That fallback mostly repeats the average.</li>
+          <li>Tuned for a standing adult. Children usually need a shorter head length and fewer heads.</li>
+        </ul>
+
+        <details class="debug">
+          <summary>Debug: compare with a known height</summary>
+          <p class="debug-note">Optional. This does not use a reference object, and the estimate above does not change until you apply a tuned head length.</p>
+          <label class="debug-label" for="knownCm">
+            <span>Known height (cm)</span>
+            <input id="knownCm" inputmode="decimal" placeholder="172">
+          </label>
+          <div class="debug-out" id="debugOut" hidden>
+            <p id="debugDiff"></p>
+            <p id="debugImplied"></p>
+            <button class="btn btn-secondary" id="tuneBtn" type="button"></button>
+          </div>
+          <p class="debug-invalid" id="debugInvalid" hidden>Enter a height between 80 and 250 cm.</p>
+        </details>
+      </article>
+
+      <p class="disclaimer">Not a medical or official measurement. Results are estimates. Typical error is several centimeters, and it can be larger with a wide-angle lens, a bent pose, or a head length unlike the one you set. Nothing in the photo is sent to a server.</p>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var el = function (id) { return document.getElementById(id); };
+
+  /* ---- Constants copied from the reference app (src/lib/height.ts) ---- */
+  var IMG_W = 1152, IMG_H = 1728;
+  var MODEL = {
+    eyeFromCrown: 0.5, mouthFromCrown: 0.78, noseFromCrown: 0.63,
+    shoulderBreadthPerHead: 1.7, defaultHeadCm: 23, defaultCanonicalHeads: 7.5,
+    minHeadCm: 16, maxHeadCm: 32, minHeads: 6, maxHeads: 8.5,
+    ratioLow: 5.2, ratioHigh: 9.2, confidenceCap: 92
+  };
+  var TIPS = [
+    "Stand farther back so the top of your head and both shoes are fully in frame.",
+    "Face the camera, arms a little away from your sides.",
+    "Stand up straight on a level floor.",
+    "Use even light. Avoid a bright window behind you.",
+    "Hold the camera roughly level, not tilted."
+  ];
+
+  /* Landmarks the pose model found on the sample photo, in image pixels.
+     span 1400.4 px, head 193.0 px — the exact numbers the reference readout shows.
+     X positions measured from the reference screenshots: the feet dot sits on the
+     right shoe's instep, and the measurement rod drops at the midpoint of crown
+     and feet (crown.x 565, feet.x 662 → rod x 613.5). */
+  var CROWN = { x: 565, y: 137.4 };
+  var CHIN  = { x: 565, y: 330.4 };
+  var FEET  = { x: 662, y: 1537.8 };
+  var SAMPLE_QUALITY = { visibility: 0.97, inFrame: 1, straight: 0.93, level: 0.95, head: 0.95 };
+
+  /* ---- State ---- */
+  var S = {
+    photo: null,            /* { url, w, h } */
+    sample: false,
+    manual: false,
+    crown: null,            /* normalized points */
+    chin: null,
+    feet: null,
+    chinAdjusted: false,
+    measurement: null,      /* auto-detection result: SpanResult or null */
+    decoding: false,
+    busy: false,
+    runError: null,
+    headCm: MODEL.defaultHeadCm,
+    heads: MODEL.defaultCanonicalHeads,
+    knownCm: "",
+    implied: null
+  };
+  var modelState = "ready"; /* loading | ready | failed */
+  var dragId = null;
+
+  /* ---- Pure math, ported from the reference ---- */
+  function clamp(n, a, b) { return Math.min(b, Math.max(a, n)); }
+  function trimNum(n, digits) {
+    var d = digits == null ? 1 : digits;
+    var f = Math.pow(10, d);
+    return String(Math.round(n * f) / f);
+  }
+  function cmToImperial(cm) {
+    var total = cm / 2.54;
+    var feet = Math.floor(total / 12);
+    var inches = Math.round(total - feet * 12);
+    if (inches === 12) { feet += 1; inches = 0; }
+    return { feet: feet, inches: inches };
+  }
+  function confidenceLabel(confidence, method) {
+    if (method === "prior") return "Weak fallback";
+    if (confidence >= 75) return "Good pose";
+    if (confidence >= 55) return "Fair pose";
+    return "Rough pose";
+  }
+  function edgeScore(x, y) {
+    var edge = Math.min(x, y, 1 - x, 1 - y);
+    if (edge >= 0.04) return 1;
+    if (edge <= 0) return 0;
+    return edge / 0.04;
+  }
+  function scoreConfidence(q, method) {
+    var weighted = 0.22 * q.visibility + 0.26 * q.inFrame + 0.27 * q.straight + 0.13 * q.level + 0.12 * q.head;
+    var cap = method === "face" ? MODEL.confidenceCap : method === "manual" ? 70 : method === "nose" ? 64 : method === "shoulder" ? 56 : 36;
+    return clamp(Math.round(weighted * 100), 0, cap);
+  }
+  function geometryWarnings(q) {
+    var w = [];
+    if (q.straight < 0.62) w.push("Knees or torso look bent or leaning. Stand straighter for a better read.");
+    if (q.level < 0.62) w.push("Shoulders or feet look tilted. Hold the camera level and stand square to it.");
+    if (q.inFrame < 0.8) w.push("The body is close to the edge of the frame. Step back if you can.");
+    if (q.visibility < 0.55) w.push("Some joints were hard to see. Even light and a clearer outline will help.");
+    return w;
+  }
+  function norm(p) { return { x: p.x / IMG_W, y: p.y / IMG_H }; }
+  function containMap(fw, fh, iw, ih) {
+    var scale = Math.min(fw / iw, fh / ih);
+    var w = iw * scale, h = ih * scale;
+    return { x: (fw - w) / 2, y: (fh - h) / 2, w: w, h: h };
+  }
+  function derivedChin() {
+    var span = S.feet.y - S.crown.y;
+    return { x: S.crown.x, y: S.crown.y + span / S.heads };
+  }
+
+  /* The sample photo's measured result (face method, bounded by the 92 cap). */
+  function faceMeasurement() {
+    var personPx = FEET.y - CROWN.y;
+    var headPx = CHIN.y - CROWN.y;
+    return {
+      ok: true, placement: "detected", method: "face",
+      personPx: personPx, headPx: headPx, quality: SAMPLE_QUALITY,
+      confidence: scoreConfidence(SAMPLE_QUALITY, "face"),
+      warnings: geometryWarnings(SAMPLE_QUALITY),
+      crown: norm(CROWN), chin: norm(CHIN), feet: norm(FEET)
+    };
+  }
+
+  /* Simulated fallback for an upload: crown and feet are guessed, head repeats the prior. */
+  function priorMeasurement(photo) {
+    var crownY = photo.h * 0.08, feetY = photo.h * 0.90;
+    var personPx = feetY - crownY, headPx = personPx / S.heads;
+    var quality = { visibility: 0.55, inFrame: 0.9, straight: 0.7, level: 0.8, head: 0.22 };
+    return {
+      ok: true, placement: "detected", method: "prior",
+      personPx: personPx, headPx: headPx, quality: quality,
+      confidence: scoreConfidence(quality, "prior"),
+      warnings: geometryWarnings(quality).concat(["Head length could not be read from the face or shoulders."]),
+      crown: { x: 0.5, y: crownY / photo.h }, chin: { x: 0.5, y: (crownY + headPx) / photo.h }, feet: { x: 0.5, y: feetY / photo.h }
+    };
+  }
+
+  function measureFromManual() {
+    var crown = S.crown, feet = S.feet, h = S.photo.h;
+    var heads = clamp(S.heads, MODEL.minHeads, MODEL.maxHeads);
+    if (feet.y <= crown.y + 0.12) {
+      return { ok: false, reason: "The feet marker needs to sit well below the top of the head.", tips: TIPS };
+    }
+    var personNorm = feet.y - crown.y;
+    var derivedChinY = crown.y + personNorm / heads;
+    var chin = S.chinAdjusted && S.chin ? S.chin : { x: crown.x, y: derivedChinY };
+    if (chin.y <= crown.y + 0.01 || chin.y >= feet.y - 0.02) {
+      return { ok: false, reason: "Place the chin marker between the crown and the feet, on the bottom of the chin.", tips: TIPS };
+    }
+    var personPx = personNorm * h;
+    var headPx = (chin.y - crown.y) * h;
+    var method = S.chinAdjusted ? "manual" : "prior";
+    var ratio = personPx / headPx;
+    var dx = Math.abs(feet.x - crown.x), dy = Math.abs(feet.y - crown.y);
+    var tilt = (Math.atan2(dx, dy) * 180) / Math.PI;
+    var level = 1 - clamp(tilt / 22, 0, 1);
+    var inFrame = (edgeScore(crown.x, crown.y) + edgeScore(feet.x, feet.y) + edgeScore(chin.x, chin.y)) / 3;
+    var headPlausible = ratio >= MODEL.ratioLow && ratio <= MODEL.ratioHigh ? 0.8 : 0.35;
+    var quality = { visibility: S.chinAdjusted ? 0.7 : 0.35, inFrame: inFrame, straight: 0.55, level: level, head: S.chinAdjusted ? headPlausible : 0.22 };
+    var warnings = [];
+    if (!S.chinAdjusted) {
+      warnings.push("The chin marker is still the default prior. Drag it to the bottom of the chin to measure this photo.");
+    } else if (ratio < MODEL.ratioLow || ratio > MODEL.ratioHigh) {
+      warnings.push("That mark is " + trimNum(ratio) + " heads tall, outside the usual adult range of " + MODEL.ratioLow + "–" + MODEL.ratioHigh + ". The estimate still uses your marks.");
+    }
+    if (level < 0.7) {
+      warnings.push("The head and feet markers aren't stacked vertically. Height uses the vertical span only.");
+    }
+    return {
+      ok: true, placement: "manual", method: method, personPx: personPx, headPx: headPx,
+      quality: quality, confidence: scoreConfidence(quality, method), warnings: warnings,
+      crown: crown, chin: chin, feet: feet
+    };
+  }
+
+  function methodExplanation(span, headCm) {
+    var heads = trimNum(S.heads);
+    if (span.placement === "manual" && span.method === "manual") {
+      return "You marked the crown, the chin, and the feet. Head length is the vertical distance between crown and chin. Pose straightness was not scored by the detector.";
+    }
+    if (span.placement === "manual" && span.method === "prior") {
+      return "The chin marker is still one share of the canonical ratio down from the crown (body ÷ " + heads + "). Until you drag it onto the chin, height is " + heads + " × the average head length (" + trimNum(headCm) + " cm), not a head measured in this photo.";
+    }
+    if (span.method === "face") {
+      return "Head length is the eye-to-mouth distance ÷ 0.28. Eyes are treated as halfway from crown to chin, and the mouth as 78% of head height. The crown sits half a head above the eyes.";
+    }
+    if (span.method === "nose") {
+      return "The mouth wasn't reliable, so head length is the eye-to-nose distance ÷ 0.13. The nose tip is treated as 63% of the way from crown to chin. This is a weaker read than the mouth.";
+    }
+    if (span.method === "shoulder") {
+      return "The face wasn't reliable enough, so head length is shoulder width ÷ 1.7. That uses a mixed-adult shoulder breadth of about 1.7 head lengths. It varies by person and by camera angle, so confidence stays lower.";
+    }
+    return "Head length could not be measured reliably, so the estimate uses the canonical fallback: stature = " + heads + " × head length. The number is mostly " + heads + " × " + trimNum(headCm) + " cm. It is a weak estimate, and confidence is capped.";
+  }
+
+  function buildReadout(span) {
+    var headCm = clamp(S.headCm, MODEL.minHeadCm, MODEL.maxHeadCm);
+    var ratio = span.personPx / span.headPx;
+    var cm = ratio * headCm;
+    var imperial = cmToImperial(cm);
+    var confidence = span.confidence;
+    var warnings = span.warnings.slice();
+    if (cm < 140 || cm > 205) {
+      confidence = Math.min(confidence, 58);
+      warnings.push("Outside a typical adult range (about 140–205 cm). Check the overlay, or tune head length if this is a child or a very tall adult.");
+    }
+    confidence = clamp(confidence, 0, MODEL.confidenceCap);
+    return {
+      cm: cm, feet: imperial.feet, inches: imperial.inches, ratio: ratio,
+      confidence: confidence, confidenceLabel: confidenceLabel(confidence, span.method),
+      method: span.method, placement: span.placement,
+      substituted: "(" + Math.round(span.personPx) + " / " + Math.round(span.headPx) + ") × " + trimNum(headCm) + " = " + trimNum(cm),
+      explanation: methodExplanation(span, headCm),
+      warnings: warnings, personPx: span.personPx, headPx: span.headPx
+    };
+  }
+
+  function currentSpan() {
+    if (!S.photo) return null;
+    if (S.manual) {
+      if (!S.crown || !S.feet) return null;
+      return measureFromManual();
+    }
+    return S.measurement;
+  }
+
+  function markers() {
+    if (S.manual && S.crown) {
+      var chinPoint = S.feet ? (S.chinAdjusted && S.chin ? S.chin : derivedChin()) : null;
+      return { crown: S.crown, chin: chinPoint, feet: S.feet };
+    }
+    var span = currentSpan();
+    if (!S.manual && span && span.ok) return { crown: span.crown, chin: span.chin, feet: span.feet };
+    return null;
+  }
+
+  function manualHint() {
+    if (!S.manual) return null;
+    if (!S.crown) return "Tap the top of the head.";
+    if (!S.feet) return "Tap the bottom of the shoes, where they meet the floor.";
+    if (S.chinAdjusted) return "Drag any marker to correct it. The estimate updates as you move them.";
+    return "Drag the chin marker to the bottom of the chin. It starts at 1 ÷ the canonical ratio, which is only a prior.";
+  }
+
+  /* ---- Overlay (screen coordinates, exactly like the reference MeasureRod/Marker) ---- */
+  function buildOverlay() {
+    var svg = el("overlay");
+    var frame = el("frame");
+    var fw = frame.clientWidth, fh = frame.clientHeight;
+    var mk = markers();
+    if (!S.photo || !mk || !mk.crown || !mk.feet || !fw || !fh) {
+      svg.style.display = "none";
+      svg.innerHTML = "";
+      return;
+    }
+    var box = containMap(fw, fh, S.photo.w, S.photo.h);
+    var screenOf = function (p) { return { x: box.x + p.x * box.w, y: box.y + p.y * box.h }; };
+    var crown = screenOf(mk.crown), feet = screenOf(mk.feet), chin = mk.chin ? screenOf(mk.chin) : null;
+    var span = currentSpan();
+    var readout = span && span.ok ? buildReadout(span) : null;
+    var f = function (n) { return Math.round(n * 10) / 10; };
+
+    var x = (crown.x + feet.x) / 2;
+    var midY = (crown.y + feet.y) / 2;
+    var headX = chin ? chin.x + 22 : crown.x + 22;
+    var s = "";
+    s += '<line x1="' + f(x) + '" y1="' + f(crown.y) + '" x2="' + f(x) + '" y2="' + f(feet.y) + '" stroke="var(--color-surface)" stroke-width="6" stroke-linecap="round"/>';
+    s += '<line x1="' + f(x) + '" y1="' + f(crown.y) + '" x2="' + f(x) + '" y2="' + f(feet.y) + '" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round"/>';
+    s += '<line x1="' + f(x - 12) + '" y1="' + f(crown.y) + '" x2="' + f(x + 12) + '" y2="' + f(crown.y) + '" stroke="var(--color-primary)" stroke-width="2"/>';
+    s += '<line x1="' + f(x - 12) + '" y1="' + f(feet.y) + '" x2="' + f(x + 12) + '" y2="' + f(feet.y) + '" stroke="var(--color-primary)" stroke-width="2"/>';
+    if (chin) {
+      s += '<line x1="' + f(headX) + '" y1="' + f(crown.y) + '" x2="' + f(headX) + '" y2="' + f(chin.y) + '" stroke="var(--color-surface)" stroke-width="5"/>';
+      s += '<line x1="' + f(headX) + '" y1="' + f(crown.y) + '" x2="' + f(headX) + '" y2="' + f(chin.y) + '" stroke="var(--color-primary)" stroke-width="2"/>';
+      s += '<line x1="' + f(headX - 8) + '" y1="' + f(crown.y) + '" x2="' + f(headX + 8) + '" y2="' + f(crown.y) + '" stroke="var(--color-primary)" stroke-width="2"/>';
+      s += '<line x1="' + f(headX - 8) + '" y1="' + f(chin.y) + '" x2="' + f(headX + 8) + '" y2="' + f(chin.y) + '" stroke="var(--color-primary)" stroke-width="2"/>';
+    }
+    if (readout) {
+      s += '<text x="' + f(x + 16) + '" y="' + f(midY) + '" fill="var(--color-surface)" stroke="var(--color-ink)" stroke-width="4" paint-order="stroke" font-size="13" font-family="Outfit, sans-serif">' + Math.round(readout.cm) + ' cm</text>';
+    }
+    var marker = function (p, label) {
+      return '<circle cx="' + f(p.x) + '" cy="' + f(p.y) + '" r="11" fill="var(--color-primary)" stroke="var(--color-surface)" stroke-width="3"/>' +
+        '<text x="' + f(p.x + 16) + '" y="' + f(p.y + 4) + '" fill="var(--color-surface)" stroke="var(--color-ink)" stroke-width="3" paint-order="stroke" font-size="12" font-family="Outfit, sans-serif">' + label + '</text>';
+    };
+    s += marker(crown, "Head");
+    if (chin) s += marker(chin, "Chin");
+    s += marker(feet, "Feet");
+
+    svg.setAttribute("viewBox", "0 0 " + fw + " " + fh);
+    svg.setAttribute("role", S.manual ? "application" : "img");
+    svg.setAttribute("aria-label", S.manual
+      ? "Measurement markers. Tap the top of the head, then the feet. Drag the chin marker to match the head."
+      : "Detected crown, chin, and feet with a vertical measurement line");
+    svg.innerHTML = s;
+    svg.style.display = "block";
+  }
+
+  /* ---- Rendering ---- */
+  function render() {
+    var photoEl = el("photo");
+    if (S.photo) {
+      if (photoEl.getAttribute("src") !== S.photo.url) photoEl.src = S.photo.url;
+      photoEl.hidden = false;
+    } else {
+      photoEl.hidden = true;
+    }
+    el("frameEmpty").hidden = !!S.photo;
+
+    el("uploadBtn").disabled = S.decoding;
+    el("cameraBtn").disabled = S.decoding;
+    var estimateBtn = el("estimateBtn");
+    estimateBtn.disabled = !S.photo || S.busy || S.decoding;
+    el("estimateLabel").textContent = S.busy ? "Estimating…" : "Estimate height";
+    el("manualBtn").textContent = S.manual ? "Use automatic detection" : "Mark points yourself";
+
+    var hint = manualHint();
+    el("hint").hidden = !hint;
+    if (hint) el("hint").textContent = hint;
+
+    el("statusLine").textContent = S.decoding
+      ? "Reading the photo…"
+      : modelState === "loading"
+        ? "Pose model is loading on this device."
+        : modelState === "ready"
+          ? "Pose detection runs in the browser. The photo is not uploaded."
+          : "Automatic detection is unavailable. Mark the head and feet by hand.";
+
+    var span = currentSpan();
+    var readout = span && span.ok ? buildReadout(span) : null;
+
+    el("busyCard").hidden = !S.busy;
+    el("resultCard").hidden = S.busy || !readout;
+    el("failCard").hidden = S.busy || !(span && !span.ok);
+    el("emptyCard").hidden = S.busy || !!span;
+    var runNote = el("runNote");
+    runNote.hidden = !(!S.busy && S.runError && span && span.ok);
+    runNote.textContent = S.runError || "";
+
+    if (readout) {
+      el("cmNum").textContent = String(Math.round(readout.cm));
+      el("imperial").textContent = readout.feet + " ft " + readout.inches + " in";
+      el("qualityLabel").textContent = readout.confidenceLabel;
+      el("qualityScore").textContent = String(readout.confidence);
+      el("meter").setAttribute("aria-valuenow", String(readout.confidence));
+      el("meterFill").style.width = readout.confidence + "%";
+      el("spanPx").textContent = String(Math.round(readout.personPx));
+      el("headPx").textContent = String(Math.round(readout.headPx));
+      el("ratioNum").textContent = trimNum(readout.ratio);
+      el("canonNum").textContent = trimNum(S.heads);
+      el("formulaSub").textContent = readout.substituted;
+      el("explain").textContent = readout.explanation;
+      var warnings = el("warnings");
+      warnings.hidden = readout.warnings.length === 0;
+      warnings.innerHTML = readout.warnings.map(function (w) { return "<li>" + w + "</li>"; }).join("");
+    }
+    if (span && !span.ok) {
+      el("failReason").textContent = span.reason;
+      el("failTips").innerHTML = span.tips.map(function (t) { return "<li>" + t + "</li>"; }).join("");
+      el("failManualBtn").hidden = S.manual;
+    }
+    if (!span) {
+      el("emptyNote").textContent = S.runError ||
+        (S.photo
+          ? S.manual
+            ? "Mark the crown and the feet. The estimate fills in as soon as both points are set."
+            : "Press Estimate height. You'll get centimeters, feet and inches, and a pose-quality score."
+          : "Add a full-body photo, or try the sample, then estimate.");
+    }
+
+    el("canonicalHeads").value = String(S.heads);
+    el("headsVal").textContent = trimNum(S.heads);
+    el("headCm").value = String(S.headCm);
+    el("headCmVal").textContent = trimNum(S.headCm);
+    el("howHeads").textContent = trimNum(S.heads);
+    el("howHeadCm").textContent = trimNum(S.headCm);
+    Array.prototype.forEach.call(document.querySelectorAll(".heads-inline"), function (node) {
+      node.textContent = trimNum(S.heads);
+    });
+
+    renderDebug(readout);
+    buildOverlay();
+    el("overlay").classList.toggle("is-manual", S.manual);
+  }
+
+  function renderDebug(readout) {
+    var k = Number(S.knownCm);
+    var ok = S.knownCm !== "" && isFinite(k) && k >= 80 && k <= 250;
+    el("debugOut").hidden = !(readout && ok);
+    el("debugInvalid").hidden = !(S.knownCm !== "" && !ok);
+    if (readout && ok) {
+      var implied = k / readout.ratio;
+      S.implied = implied;
+      el("debugDiff").textContent = "This estimate is " + trimNum(readout.cm - k) + " cm " + (readout.cm >= k ? "above" : "below") + " the known height.";
+      el("debugImplied").textContent = "Implied head length for this photo: " + trimNum(implied) + " cm.";
+      el("tuneBtn").textContent = "Tune head length to " + trimNum(clamp(implied, MODEL.minHeadCm, MODEL.maxHeadCm)) + " cm";
+    }
+  }
+
+  function scrollToResult() {
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el("resultRegion").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+  }
+
+  /* ---- Actions ---- */
+  function setPhoto(photo) {
+    S.photo = photo;
+    S.measurement = null;
+    S.runError = null;
+    S.crown = null;
+    S.feet = null;
+    S.chin = null;
+    S.chinAdjusted = false;
+    if (modelState === "failed") S.manual = true;
+  }
+
+  function loadSample() {
+    S.decoding = true;
+    S.runError = null;
+    render();
+    setTimeout(function () {
+      S.decoding = false;
+      setPhoto({ url: "assets/standing.jpg", w: IMG_W, h: IMG_H });
+      S.sample = true;
+      S.manual = false;
+      render();
+    }, 250);
+  }
+
+  function decodeFile(file) {
+    S.decoding = true;
+    S.runError = null;
+    render();
+    var url = URL.createObjectURL(file);
+    var im = new Image();
+    im.onload = function () {
+      S.decoding = false;
+      setPhoto({ url: url, w: im.naturalWidth, h: im.naturalHeight });
+      S.sample = false;
+      S.manual = false;
+      render();
+    };
+    im.onerror = function () {
+      S.decoding = false;
+      S.runError = "Could not read that image. Try a JPG or PNG.";
+      render();
+    };
+    im.src = url;
+  }
+
+  function onFile(file) {
+    if (!file) return;
+    if (file.type.indexOf("image/") !== 0) {
+      S.runError = "That file isn't an image. Try a JPG or PNG.";
+      render();
+      return;
+    }
+    decodeFile(file);
+  }
+
+  function estimate() {
+    if (!S.photo || S.busy) return;
+    S.busy = true;
+    S.runError = null;
+    render();
+    scrollToResult();
+    setTimeout(function () {
+      S.busy = false;
+      if (S.manual) {
+        if (!S.crown || !S.feet) S.runError = "Tap the top of the head, then the bottom of the feet.";
+      } else if (modelState === "failed") {
+        S.manual = true;
+        S.runError = "The pose model didn't run. Mark the top of the head and the bottom of the feet instead.";
+      } else if (!S.measurement) {
+        S.measurement = S.sample ? faceMeasurement() : priorMeasurement(S.photo);
+      }
+      render();
+    }, 900);
+  }
+
+  /* ---- Manual point placement and dragging ---- */
+  function pointFromEvent(event) {
+    if (!S.photo) return null;
+    var svg = event.currentTarget;
+    var rect = svg.getBoundingClientRect();
+    var sx = event.clientX - rect.left;
+    var sy = event.clientY - rect.top;
+    var box = containMap(rect.width, rect.height, S.photo.w, S.photo.h);
+    var nx = (sx - box.x) / box.w;
+    var ny = (sy - box.y) / box.h;
+    if (nx < -0.05 || ny < -0.05 || nx > 1.05 || ny > 1.05) return null;
+    return { x: clamp(nx, 0, 1), y: clamp(ny, 0, 1), sx: sx, sy: sy, box: box };
+  }
+  function hitMarker(sx, sy, box) {
+    var mk = markers();
+    if (!mk) return null;
+    var order = ["chin", "crown", "feet"];
+    var best = null;
+    for (var i = 0; i < order.length; i++) {
+      var id = order[i];
+      var point = mk[id];
+      if (!point) continue;
+      var px = box.x + point.x * box.w, py = box.y + point.y * box.h;
+      var d = Math.hypot(px - sx, py - sy);
+      if (d <= 28 && (!best || d < best.d)) best = { id: id, d: d };
+    }
+    return best ? best.id : null;
+  }
+  function moveMarker(id, point) {
+    if (id === "crown") { S.crown = point; return; }
+    if (id === "feet") { S.feet = point; return; }
+    S.chin = point;
+    S.chinAdjusted = true;
+  }
+
+  /* ---- Wiring ---- */
+  el("uploadBtn").addEventListener("click", function () { el("fileInput").click(); });
+  el("cameraBtn").addEventListener("click", function () { el("cameraInput").click(); });
+  el("fileInput").addEventListener("change", function (event) { onFile(event.target.files && event.target.files[0]); event.target.value = ""; });
+  el("cameraInput").addEventListener("change", function (event) { onFile(event.target.files && event.target.files[0]); event.target.value = ""; });
+  el("sampleBtn").addEventListener("click", loadSample);
+  el("manualBtn").addEventListener("click", function () {
+    S.manual = !S.manual;
+    S.runError = null;
+    if (!S.manual) { S.crown = null; S.feet = null; S.chin = null; S.chinAdjusted = false; }
+    render();
+  });
+  el("failManualBtn").addEventListener("click", function () { S.manual = true; render(); });
+  el("estimateBtn").addEventListener("click", estimate);
+  el("canonicalHeads").addEventListener("input", function (event) { S.heads = Number(event.target.value); render(); });
+  el("headCm").addEventListener("input", function (event) { S.headCm = Number(event.target.value); render(); });
+  el("knownCm").addEventListener("input", function (event) { S.knownCm = event.target.value; render(); });
+  el("tuneBtn").addEventListener("click", function () {
+    if (S.implied === null) return;
+    S.headCm = clamp(Math.round(S.implied * 2) / 2, MODEL.minHeadCm, MODEL.maxHeadCm);
+    render();
+  });
+
+  var overlay = el("overlay");
+  overlay.addEventListener("pointerdown", function (event) {
+    if (!S.manual) return;
+    var mapped = pointFromEvent(event);
+    if (!mapped) return;
+    var hit = hitMarker(mapped.sx, mapped.sy, mapped.box);
+    if (hit) {
+      dragId = hit;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      return;
+    }
+    var point = { x: mapped.x, y: mapped.y };
+    if (!S.crown) S.crown = point;
+    else if (!S.feet) S.feet = point;
+    render();
+  });
+  overlay.addEventListener("pointermove", function (event) {
+    if (!dragId) return;
+    var mapped = pointFromEvent(event);
+    if (!mapped) return;
+    moveMarker(dragId, { x: mapped.x, y: mapped.y });
+    render();
+  });
+  overlay.addEventListener("pointerup", function () { dragId = null; });
+  overlay.addEventListener("pointercancel", function () { dragId = null; });
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(function () { buildOverlay(); }).observe(el("frame"));
+  }
+
+  /* ---- Preview states (?state=…) ---- */
+  (function applyState() {
+    var params = new URLSearchParams(window.location.search);
+    var state = params.get("state");
+    var useModel = params.get("model");
+    var scrollTo = params.get("scroll");
+    if (scrollTo !== null) {
+      setTimeout(function () { window.scrollTo(0, Number(scrollTo)); }, 150);
+    }
+    if (useModel === "failed") { modelState = "failed"; S.manual = true; }
+    if (useModel === "loading") modelState = "loading";
+    if (!state) return;
+    var sample = { url: "assets/standing.jpg", w: IMG_W, h: IMG_H };
+    if (state === "empty") return;
+    if (state === "busy") { S.photo = sample; S.sample = true; S.busy = true; }
+    if (state === "result") { S.photo = sample; S.sample = true; S.measurement = faceMeasurement(); }
+    if (state === "prior") { S.photo = sample; S.sample = true; S.measurement = priorMeasurement(sample); }
+    if (state === "fail") {
+      S.photo = sample; S.sample = true;
+      S.measurement = { ok: false, reason: "No full body was found in this photo.", tips: TIPS };
+    }
+    if (state === "manual") {
+      S.photo = sample; S.sample = true; S.manual = true;
+      S.crown = norm(CROWN);
+      S.feet = norm(FEET);
+    }
+  })();
+
+  render();
+})();
+</script>
+</body>
+</html>

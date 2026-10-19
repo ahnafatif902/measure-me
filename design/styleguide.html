@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MeasureMe — UI system</title>
+  <meta name="theme-color" content="#efe8dc">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Outfit:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="app.css">
+  <style>
+    /* Styleguide-only layout (not part of the product UI) */
+    .sg-section { margin-top: 40px; }
+    .sg-h2 { font-family: var(--font-display); font-size: 24px; line-height: 32px; font-weight: 400; }
+    .sg-note { margin-top: 8px; max-width: 720px; font-size: 14px; line-height: 1.625; color: var(--ink-80); }
+    .sg-grid { display: grid; gap: 12px; margin-top: 16px; }
+    @media (min-width: 640px) {
+      .sg-cols-2 { grid-template-columns: 1fr 1fr; }
+      .sg-cols-4 { grid-template-columns: repeat(4, 1fr); }
+    }
+    .swatch { overflow: hidden; border-radius: 16px; border: 1px solid var(--ink-10); background: var(--color-surface); }
+    .swatch-chip { height: 72px; }
+    .swatch-meta { padding: 10px 12px; font-size: 13px; line-height: 1.5; }
+    .swatch-name { font-weight: 500; }
+    .swatch-hex { font-variant-numeric: tabular-nums; color: var(--ink-60); }
+    .spec-row { display: grid; grid-template-columns: 220px 1fr; gap: 16px; padding: 14px 0; border-top: 1px solid var(--ink-10); align-items: baseline; }
+    .spec-label { font-size: 13px; line-height: 1.5; color: var(--ink-60); }
+    .demo-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .demo-stack { display: grid; gap: 12px; }
+    .map { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .map th, .map td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--ink-10); vertical-align: top; }
+    .map th { color: var(--ink-60); font-weight: 500; }
+    .map code, .inline-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .sg-caption { margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--ink-60); }
+  </style>
+</head>
+<body>
+<main class="page">
+  <header class="page-header">
+    <p class="kicker">Design system</p>
+    <div class="title-row">
+      <span class="glyph" aria-hidden="true"><i class="g-top"></i><i class="g-mid"></i><i class="g-bot"></i></span>
+      <h1 class="title">MeasureMe interface</h1>
+    </div>
+    <p class="lede">Copied from the reference build: the same tokens, components, copy, and states. See mockup.html for the assembled screen and DESIGN.md for handoff notes.</p>
+  </header>
+
+  <!-- ============ Palette ============ -->
+  <section class="sg-section">
+    <h2 class="sg-h2">Palette</h2>
+    <p class="sg-note">Four base colors and two weights of derived opacity mixes. Everything on the screen is made of these; there is no accent outside the primary terracotta.</p>
+    <div class="sg-grid sg-cols-4">
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#efe8dc"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Background</div>
+          <div class="swatch-hex">#efe8dc · --color-bg</div>
+          <div>Page background, wells inside cards.</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#fbf7f0"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Surface</div>
+          <div class="swatch-hex">#fbf7f0 · --color-surface</div>
+          <div>Cards, secondary buttons, inputs.</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#1c1712"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Ink</div>
+          <div class="swatch-hex">#1c1712 · --color-ink</div>
+          <div>Text, the photo frame, label outlines.</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#b8431f"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Primary</div>
+          <div class="swatch-hex">#b8431f · --color-primary</div>
+          <div>Buttons, title glyph, markers, meter fill.</div>
+        </div>
+      </div>
+    </div>
+
+    <table class="map" style="margin-top:16px">
+      <tr><th>Derived mix</th><th>Value</th><th>Used for</th></tr>
+      <tr><td><code>--ink-80</code></td><td>rgb(28 23 18 / 0.8)</td><td>Body copy, hints, explanations</td></tr>
+      <tr><td><code>--ink-75</code></td><td>rgb(28 23 18 / 0.75)</td><td>Card notes, empty-state note</td></tr>
+      <tr><td><code>--ink-70</code></td><td>rgb(28 23 18 / 0.7)</td><td>Quality note, disclaimer, unit label</td></tr>
+      <tr><td><code>--ink-60</code></td><td>rgb(28 23 18 / 0.6)</td><td>Kickers, status line, tile labels</td></tr>
+      <tr><td><code>--ink-30</code></td><td>rgb(28 23 18 / 0.3)</td><td>Empty-state dash “—”</td></tr>
+      <tr><td><code>--ink-15</code></td><td>rgb(28 23 18 / 0.15)</td><td>Secondary-button border, debug input border</td></tr>
+      <tr><td><code>--ink-10</code></td><td>rgb(28 23 18 / 0.1)</td><td>Card border, meter track</td></tr>
+      <tr><td><code>--ink-5</code></td><td>rgb(28 23 18 / 0.05)</td><td>Ghost-button hover</td></tr>
+      <tr><td><code>--surface-75/80</code></td><td>rgb(251 247 240 / …)</td><td>Text on the dark frame</td></tr>
+      <tr><td><code>--primary-90</code></td><td>rgb(184 67 31 / 0.9)</td><td>Primary-button hover</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ Type ============ -->
+  <section class="sg-section">
+    <h2 class="sg-h2">Type</h2>
+    <p class="sg-note">Outfit for everything functional; Fraunces for the wordmark, card titles, and the measured number. The reference loads Fraunces at two weights only — 560 and 650 — so a CSS weight of 400–560 resolves to 560 and 600+ resolves to 650.</p>
+    <div>
+      <div class="spec-row">
+        <div class="spec-label">Kicker — Outfit 500, 14/20, ink/60<br><span class="inline-code">text-sm font-medium text-ink/60</span></div>
+        <p class="kicker">Proportion estimate</p>
+      </div>
+      <div class="spec-row">
+        <div class="spec-label">Title — Fraunces 650, 36/40 → 48/48, tracking −0.025em<br><span class="inline-code">font-display text-4xl font-semibold tracking-tight sm:text-5xl</span></div>
+        <h1 class="title" style="font-size:48px;line-height:1">MeasureMe</h1>
+      </div>
+      <div class="spec-row">
+        <div class="spec-label">Lede — Outfit 400, 16/1.625, ink/80<br><span class="inline-code">max-w-xl text-base leading-relaxed text-ink/80</span></div>
+        <p class="lede" style="margin-top:0">Estimate standing height from one photo. No reference object — only how many head lengths fit in the body.</p>
+      </div>
+      <div class="spec-row">
+        <div class="spec-label">Measured number — Fraunces 650, 60/1, tabular<br><span class="inline-code">font-display text-6xl leading-none font-semibold tabular-nums</span></div>
+        <p class="big-num" style="margin-top:0">167<span class="unit">cm</span></p>
+      </div>
+      <div class="spec-row">
+        <div class="spec-label">Card title — Fraunces 560, 24/32<br><span class="inline-code">font-display text-2xl</span></div>
+        <h2 class="panel-title">How the estimate is calculated</h2>
+      </div>
+      <div class="spec-row">
+        <div class="spec-label">Body / note — Outfit 400, 14/1.625<br><span class="inline-code">text-sm leading-relaxed text-ink/80</span></div>
+        <p class="explain" style="margin-top:0">Head length is the eye-to-mouth distance ÷ 0.28. Eyes are treated as halfway from crown to chin, and the mouth as 78% of head height. The crown sits half a head above the eyes.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Shape ============ -->
+  <section class="sg-section">
+    <h2 class="sg-h2">Shape and elevation</h2>
+    <p class="sg-note">One radius family: 24px cards, 16px wells and tiles, fully round pills. Cards carry a 1px ink/10 border and the smallest Tailwind shadow; the photo frame is solid ink.</p>
+    <div class="sg-grid sg-cols-2">
+      <div class="panel">
+        <p class="kicker">Card — rounded-3xl</p>
+        <p class="panel-note">24px radius · border ink/10 · shadow-sm · p-5 (20px)</p>
+      </div>
+      <div class="well" style="margin-top:0">
+        <p class="kicker">Well — rounded-2xl</p>
+        <p class="panel-note">16px radius · bg token inside surface cards · px-3 py-3</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Components ============ -->
+  <section class="sg-section">
+    <h2 class="sg-h2">Components</h2>
+
+    <div class="panel" style="margin-top:16px">
+      <p class="kicker">Buttons — always pills</p>
+      <p class="sg-caption" style="margin-bottom:12px">Base: <span class="inline-code">inline-flex items-center justify-center gap-2 rounded-full font-medium transition-colors duration-200</span>. Sizes: <span class="inline-code">md = min-h-11 px-4 text-sm</span>, <span class="inline-code">lg = min-h-12 w-full px-5 text-base</span>. Disabled is the same button at 45% opacity.</p>
+      <div class="demo-row">
+        <button class="btn btn-primary" type="button">Continue</button>
+        <button class="btn btn-secondary" type="button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+          Upload
+        </button>
+        <button class="btn btn-ghost btn-ghost-px" type="button">Try a sample photo</button>
+        <button class="btn btn-primary" type="button" disabled>Disabled</button>
+      </div>
+      <div style="margin-top:12px;max-width:480px">
+        <button class="btn btn-primary btn-lg" type="button" disabled>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
+          Estimate height
+        </button>
+        <p class="sg-caption">The estimate action is a size-lg primary pill; it is disabled until a photo is present.</p>
+      </div>
+    </div>
+
+    <div class="sg-grid sg-cols-2" style="margin-top:12px">
+      <div class="panel">
+        <p class="kicker">Pose-quality meter — h-2, ink/10 track, primary fill</p>
+        <div class="quality" style="margin-top:12px">
+          <div class="quality-row">
+            <span class="quality-label">Good pose</span>
+            <span class="quality-score">Pose quality 92 / 100</span>
+          </div>
+          <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="92" aria-label="Pose quality, not accuracy">
+            <div class="meter-fill" style="width:92%"></div>
+          </div>
+          <p class="quality-note">This scores the pose — standing straight, full body in frame, camera roughly level. It is not an accuracy percentage, and it never means certain. Typical error is several centimeters.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="kicker">Sliders — native inputs, accent-color primary</p>
+        <div class="sliders">
+          <label class="slider" for="sgHeads">
+            <span class="slider-row"><span>Canonical stature</span><span class="slider-value">7.5 × head</span></span>
+            <input id="sgHeads" type="range" min="6" max="8.5" step="0.1" value="7.5">
+          </label>
+          <label class="slider" for="sgHeadCm">
+            <span class="slider-row"><span>Average head length</span><span class="slider-value">23 cm</span></span>
+            <input id="sgHeadCm" type="range" min="16" max="32" step="0.5" value="23">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <p class="kicker">Overlay vocabulary</p>
+      <p class="sg-caption" style="margin-bottom:12px">Drawn in screen coordinates over the photo. Marker: r 11 primary circle, 3px surface stroke. Rod: 6px surface halo under a 2px primary line, end caps ±12. Head bracket at +22 from the chin, caps ±8. Labels: Outfit, surface fill with ink stroke via <span class="inline-code">paint-order: stroke</span> — 12px with 3px stroke on markers, 13px with 4px stroke on the rod.</p>
+      <svg viewBox="0 0 320 240" style="width:320px;height:240px;background:#c9c9c9;border-radius:16px;display:block" role="img" aria-label="Overlay marker vocabulary">
+        <line x1="150" y1="24" x2="150" y2="216" stroke="var(--color-surface)" stroke-width="6" stroke-linecap="round"/>
+        <line x1="150" y1="24" x2="150" y2="216" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="138" y1="24" x2="162" y2="24" stroke="var(--color-primary)" stroke-width="2"/>
+        <line x1="138" y1="216" x2="162" y2="216" stroke="var(--color-primary)" stroke-width="2"/>
+        <line x1="172" y1="24" x2="172" y2="60" stroke="var(--color-surface)" stroke-width="5"/>
+        <line x1="172" y1="24" x2="172" y2="60" stroke="var(--color-primary)" stroke-width="2"/>
+        <line x1="164" y1="24" x2="180" y2="24" stroke="var(--color-primary)" stroke-width="2"/>
+        <line x1="164" y1="60" x2="180" y2="60" stroke="var(--color-primary)" stroke-width="2"/>
+        <text x="166" y="124" fill="var(--color-surface)" stroke="var(--color-ink)" stroke-width="4" paint-order="stroke" font-size="13" font-family="Outfit, sans-serif">167 cm</text>
+        <circle cx="150" cy="24" r="11" fill="var(--color-primary)" stroke="var(--color-surface)" stroke-width="3"/>
+        <circle cx="150" cy="60" r="11" fill="var(--color-primary)" stroke="var(--color-surface)" stroke-width="3"/>
+        <circle cx="150" cy="216" r="11" fill="var(--color-primary)" stroke="var(--color-surface)" stroke-width="3"/>
+        <text x="166" y="28" fill="var(--color-surface)" stroke="var(--color-ink)" stroke-width="3" paint-order="stroke" font-size="12" font-family="Outfit, sans-serif">Head</text>
+        <text x="166" y="64" fill="var(--color-surface)" stroke="var(--color-ink)" stroke-width="3" paint-order="stroke" font-size="12" font-family="Outfit, sans-serif">Chin</text>
+        <text x="166" y="220" fill="var(--color-surface)" stroke="var(--color-ink)" stroke-width="3" paint-order="stroke" font-size="12" font-family="Outfit, sans-serif">Feet</text>
+      </svg>
+    </div>
+
+    <div class="sg-grid sg-cols-2" style="margin-top:12px">
+      <div class="panel">
+        <p class="kicker">Empty state — the dash</p>
+        <p class="big-num dash" style="margin-top:4px">—</p>
+        <p class="empty-note">Add a full-body photo, or try the sample, then estimate.</p>
+      </div>
+      <div class="panel">
+        <p class="kicker">Dark frame — empty</p>
+        <div class="frame-card" style="margin-top:12px">
+          <div class="frame">
+            <div class="frame-empty">
+              <svg class="icon-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
+              <p class="frame-empty-title">Head to feet, in frame</p>
+              <p class="frame-empty-copy">Stand straight, face the camera, and leave a little room above your hair and below your shoes.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ States & copy ============ -->
+  <section class="sg-section">
+    <h2 class="sg-h2">States and copy</h2>
+    <p class="sg-note">All strings are verbatim from the reference build. The right column shows exactly one of these at a time, plus the constants card below.</p>
+    <table class="map" style="margin-top:16px">
+      <tr><th>State</th><th>Copy</th></tr>
+      <tr><td>Header</td><td>Kicker “Proportion estimate” · title “MeasureMe” · lede “Estimate standing height from one photo. No reference object — only how many head lengths fit in the body.”</td></tr>
+      <tr><td>Frame, empty</td><td>“Head to feet, in frame” · “Stand straight, face the camera, and leave a little room above your hair and below your shoes.”</td></tr>
+      <tr><td>Manual hints</td><td>“Tap the top of the head.” · “Tap the bottom of the shoes, where they meet the floor.” · “Drag any marker to correct it. The estimate updates as you move them.” · “Drag the chin marker to the bottom of the chin. It starts at 1 ÷ the canonical ratio, which is only a prior.”</td></tr>
+      <tr><td>Status line</td><td>“Reading the photo…” · “Pose model is loading on this device.” · “Pose detection runs in the browser. The photo is not uploaded.” · “Automatic detection is unavailable. Mark the head and feet by hand.”</td></tr>
+      <tr><td>Busy</td><td>“Reading the pose” · “Finding the crown-to-feet span. The first run also finishes loading the pose model.”</td></tr>
+      <tr><td>Result</td><td>“Estimated height” · “Pose quality N / 100” · “Body span” / “Head length” · “Measured stature is 7.3 heads. The canonical constant is 7.5.” · “height_cm = (person_pixel_height / head_pixel_height) × average_head_cm”</td></tr>
+      <tr><td>Failure</td><td>“Couldn't measure that photo” + one reason, e.g. “No full body was found in this photo.” · “The feet are missing or cut off, so stature can't be measured.” · “The body span is too small to trust. Step closer, but keep head and feet in frame.” + the five pose tips + “Mark points yourself”</td></tr>
+      <tr><td>Empty card</td><td>“Press Estimate height. You'll get centimeters, feet and inches, and a pose-quality score.” · “Mark the crown and the feet. The estimate fills in as soon as both points are set.” · “Add a full-body photo, or try the sample, then estimate.”</td></tr>
+      <tr><td>Warnings (examples)</td><td>“The chin marker is still the default prior. Drag it to the bottom of the chin to measure this photo.” · “Outside a typical adult range (about 140–205 cm). Check the overlay, or tune head length if this is a child or a very tall adult.”</td></tr>
+      <tr><td>Disclaimer</td><td>“Not a medical or official measurement. Results are estimates. Typical error is several centimeters, and it can be larger with a wide-angle lens, a bent pose, or a head length unlike the one you set. Nothing in the photo is sent to a server.”</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ Layout ============ -->
+  <section class="sg-section">
+    <h2 class="sg-h2">Layout</h2>
+    <table class="map" style="margin-top:16px">
+      <tr><th>Piece</th><th>Measure</th></tr>
+      <tr><td>Page</td><td>max-width 1024px centered; padding 16/24 px on mobile, 24/40 on ≥640px</td></tr>
+      <tr><td>Header</td><td>max-width 672px, 24px below; title row 36px glyph + 12px gap; lede max-width 576px</td></tr>
+      <tr><td>Grid</td><td>single column; two equal columns at ≥1024px, 24px gap, items start</td></tr>
+      <tr><td>Photo frame</td><td>3:4 aspect, solid ink, photo contained; side bars 20px (mobile) / 26px (desktop) at these widths</td></tr>
+      <tr><td>Left column stack</td><td>Upload row +12px, ghost row +8px, hint +12px, estimate +16px, status +8px</td></tr>
+      <tr><td>Right column</td><td>16px between cards; result order: result → failure → empty → constants card → disclaimer</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ Implementation map ============ -->
+  <section class="sg-section">
+    <h2 class="sg-h2">Implementation map</h2>
+    <p class="sg-note">The plain-CSS classes in app.css, next to the Tailwind utility list to use if this is rebuilt with Tailwind (as the reference was).</p>
+    <table class="map" style="margin-top:16px">
+      <tr><th>Class</th><th>Tailwind equivalent</th></tr>
+      <tr><td><code>.page</code></td><td><code>mx-auto min-h-dvh w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10</code></td></tr>
+      <tr><td><code>.kicker</code></td><td><code>text-sm font-medium text-ink/60</code></td></tr>
+      <tr><td><code>.title</code></td><td><code>font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl</code></td></tr>
+      <tr><td><code>.lede</code></td><td><code>mt-3 max-w-xl text-base leading-relaxed text-pretty text-ink/80</code></td></tr>
+      <tr><td><code>.grid</code></td><td><code>grid items-start gap-6 lg:grid-cols-2</code></td></tr>
+      <tr><td><code>.frame-card</code></td><td><code>overflow-hidden rounded-3xl bg-ink text-surface shadow-sm</code></td></tr>
+      <tr><td><code>.frame</code></td><td><code>relative aspect-[3/4] w-full</code></td></tr>
+      <tr><td><code>.photo</code></td><td><code>absolute inset-0 h-full w-full object-contain</code></td></tr>
+      <tr><td><code>.btn</code></td><td><code>inline-flex items-center justify-center gap-2 rounded-full font-medium transition-colors duration-200</code></td></tr>
+      <tr><td><code>.btn-primary</code></td><td><code>bg-primary text-surface hover:bg-primary/90</code></td></tr>
+      <tr><td><code>.btn-secondary</code></td><td><code>border border-ink/15 bg-surface text-ink hover:bg-bg</code></td></tr>
+      <tr><td><code>.btn-ghost</code></td><td><code>bg-transparent text-ink hover:bg-ink/5</code></td></tr>
+      <tr><td><code>.btn-lg</code></td><td><code>min-h-12 w-full px-5 text-base</code></td></tr>
+      <tr><td><code>.panel</code></td><td><code>rounded-3xl border border-ink/10 bg-surface p-5 shadow-sm</code></td></tr>
+      <tr><td><code>.well</code></td><td><code>rounded-2xl bg-bg px-3 py-3</code></td></tr>
+      <tr><td><code>.big-num</code></td><td><code>mt-1 font-display text-6xl leading-none font-semibold tabular-nums</code></td></tr>
+      <tr><td><code>.meter</code></td><td><code>mt-2 h-2 overflow-hidden rounded-full bg-ink/10</code></td></tr>
+      <tr><td><code>.meter-fill</code></td><td><code>h-full rounded-full bg-primary</code></td></tr>
+      <tr><td><code>.tile</code></td><td><code>rounded-2xl bg-bg px-3 py-3</code></td></tr>
+      <tr><td><code>.disclaimer</code></td><td><code>px-1 text-sm leading-relaxed text-pretty text-ink/70</code></td></tr>
+    </table>
+    <p class="sg-caption">Fonts: Outfit 400/500/600 and Fraunces 560/650 from the Google Fonts URL above — self-host the woff2 files for a production build. Icons: lucide, 16px (buttons), 20px (alert), 32px (frame).</p>
+  </section>
+</main>
+</body>
+</html>

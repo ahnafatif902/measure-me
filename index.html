@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F4F3F1">
+<meta name="description" content="MeasureMe estimates your height from a single full-body photo using body proportions. Runs entirely in your browser.">
+<title>MeasureMe — estimate height from one photo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232C4BF0'/%3E%3Cpath d='M16 6v20M11 6h10M11 26h10M16 13h4M16 19h4' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-phase="empty">
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill="var(--accent)"/>
+      <path d="M16 6v20M11 6h10M11 26h10M16 13h4M16 19h4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    </svg>
+    <span class="brand-name">MeasureMe</span>
+    <span class="badge">beta</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <h1>How tall are you?<br>Just take one photo.</h1>
+    <p class="sub">MeasureMe estimates height from body proportions. No reference object, no LiDAR — the maths runs on your phone, visible and tunable.</p>
+    <ul class="chips" aria-label="Photo requirements">
+      <li>Stand straight</li>
+      <li>Full body in frame</li>
+      <li>Face the camera</li>
+    </ul>
+  </section>
+
+  <!-- ============ MANUAL MODE BAR ============ -->
+  <section id="manualBar" class="manual-bar hidden" aria-live="polite">
+    <p class="manual-title">Place three points</p>
+    <ol id="manualSteps" class="manual-steps">
+      <li>Tap the <strong>top of your head</strong> — highest point of skull or hair</li>
+      <li>Tap your <strong>chin</strong> — bottom of the jaw</li>
+      <li>Tap the <strong>floor at your feet</strong> — at the heel or toe, whichever is lowest</li>
+    </ol>
+    <p class="manual-hint">Drag any dot to fine-tune — a magnifier follows your finger.</p>
+    <p id="manualWarn" class="manual-warn hidden" role="alert"></p>
+    <div class="manual-actions">
+      <button id="btnManualUndo" class="btn btn--tiny" type="button">Undo</button>
+      <button id="btnManualReset" class="btn btn--tiny" type="button">Start over</button>
+      <button id="btnManualCancel" class="btn btn--tiny" type="button">Cancel</button>
+    </div>
+  </section>
+
+  <!-- ============ PHOTO ============ -->
+  <section class="photo-card" aria-label="Photo">
+    <div id="dropZone" class="drop-zone" role="button" tabindex="0" aria-label="Add a full-body photo">
+      <div class="drop-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/>
+          <circle cx="12" cy="10.5" r="3"/>
+          <path d="M7 19c.8-2.6 2.7-4 5-4s4.2 1.4 5 4"/>
+        </svg>
+      </div>
+      <p class="drop-title">Add a full-body photo</p>
+      <p class="drop-sub">Head to feet, standing straight, from 2.5–3.5 m away</p>
+      <button id="btnPick" class="btn btn--soft" type="button">Choose or take a photo</button>
+      <p class="drop-note">Stays on your device · JPEG / PNG / WebP</p>
+    </div>
+
+    <div id="photoFrame" class="photo-frame hidden">
+      <img id="photo" alt="Your photo" />
+      <canvas id="overlay" aria-hidden="true"></canvas>
+      <canvas id="loupe" width="132" height="132" aria-hidden="true"></canvas>
+      <div id="scanline" class="scanline hidden" aria-hidden="true"></div>
+      <button id="btnReplace" class="btn btn--photo" type="button">Replace</button>
+    </div>
+  </section>
+
+  <!-- ============ STATUS / LOADING ============ -->
+  <section id="statusCard" class="card status-card hidden" aria-live="polite">
+    <span class="spinner" aria-hidden="true"></span>
+    <p id="statusText">Finding head and feet…</p>
+  </section>
+
+  <!-- ============ ERROR ============ -->
+  <section id="errorCard" class="card error-card hidden" role="alert">
+    <div class="error-head">
+      <span class="error-icon" aria-hidden="true">!</span>
+      <h2 id="errorTitle">We couldn't find a full body</h2>
+    </div>
+    <p id="errorText" class="muted"></p>
+    <h3 class="tips-title">Try this</h3>
+    <ul class="tips">
+      <li>Stand <strong>2.5–3.5 m</strong> back so your whole body fits with space above your head and below your feet.</li>
+      <li>Face the camera straight — arms at your sides, feet slightly apart and visible.</li>
+      <li>Avoid long coats or very loose clothing that hides your body shape.</li>
+      <li>Use bright, even light; avoid strong backlight or harsh shadows on your face.</li>
+      <li>Ask someone to take the photo (or use a timer) and hold the phone level at chest height.</li>
+    </ul>
+    <div class="btn-row">
+      <button id="btnRetry" class="btn btn--ghost" type="button">Try again</button>
+      <button id="btnManualFromError" class="btn btn--ghost" type="button">Set points manually</button>
+    </div>
+  </section>
+
+  <!-- ============ RESULT ============ -->
+  <section id="resultCard" class="card result-card hidden" aria-live="polite">
+    <p class="eyebrow">Estimated height</p>
+    <div class="height-line">
+      <span id="heightNumber" class="height-number">0</span>
+      <span id="heightUnit" class="height-unit">cm</span>
+    </div>
+    <p id="heightFtIn" class="ftin">≈ 0 ft 0 in</p>
+
+    <div class="conf">
+      <div class="conf-track" role="img" aria-label="Confidence bar"><div id="confFill" class="conf-fill"></div></div>
+      <div class="conf-meta">
+        <span id="confBand" class="conf-band">—</span>
+        <span id="confScore" class="conf-score">0 / 100</span>
+      </div>
+    </div>
+    <p id="errorLine" class="error-line"></p>
+
+    <ul id="notesList" class="notes hidden"></ul>
+
+    <details id="calcDetails" class="calc">
+      <summary>How this was calculated</summary>
+      <div id="traceBox" class="trace"></div>
+
+      <div class="tune">
+        <div class="tune-head">
+          <label for="headCmSlider">Average adult head size (crown → chin)</label>
+          <output id="headCmOut" for="headCmSlider">23.0 cm</output>
+        </div>
+        <input id="headCmSlider" type="range" min="21" max="25" step="0.1" value="23" />
+        <p class="tune-hint">Debug/demo control: the height scales almost 1:1 with this. Default 23 cm is the adult population average; try 21.5 for smaller heads, 24.5 for larger.</p>
+        <label class="debug-toggle">
+          <input id="debugToggle" type="checkbox" /> Show all detected pose points on the photo
+        </label>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ ACTIONS ============ -->
+  <div class="actions">
+    <button id="primaryBtn" class="btn btn--primary btn--cta" type="button" disabled>Estimate height</button>
+    <button id="manualToggleBtn" class="btn btn--ghost hidden" type="button">Set points manually</button>
+  </div>
+
+  <!-- ============ FOOTER INFO ============ -->
+  <section class="how" aria-label="How it works">
+    <ol>
+      <li><b>1</b><span>Pose model finds your head &amp; feet points</span></li>
+      <li><b>2</b><span>Body proportions convert pixels → centimetres</span></li>
+      <li><b>3</b><span>Confidence tells you how much to trust it</span></li>
+    </ol>
+  </section>
+
+  <p class="disclaimer">Estimate only — <strong>not a medical or official measurement</strong>. This is a proportions model: typical error is several centimetres (± 4–15% of height depending on photo quality). Don't use it where an exact height is required.</p>
+  <p class="privacy">Your photo never leaves this device — no account, no upload, no server.</p>
+
+  <footer class="footer">MeasureMe · single-photo height estimate · client-side MVP</footer>
+</main>
+
+<input id="fileInput" type="file" accept="image/*" hidden />
+
+<script src="js/constants.js"></script>
+<script src="js/geometry.js"></script>
+<script src="js/anthropometry.js"></script>
+<script src="js/detector.js"></script>
+<script src="js/overlay.js"></script>
+<script src="js/manual.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

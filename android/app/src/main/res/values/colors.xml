@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- MeasureStudio design tokens (design/tokens.css). -->
+    <color name="bg">#EFE8DC</color>
+    <color name="accent">#B8431F</color>
+    <color name="ic_launcher_background">#B8431F</color>
+</resources>

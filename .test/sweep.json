@@ -1,0 +1,6 @@
+[
+  ["open", "http://127.0.0.1:8137/"],
+  ["set", "viewport", "390", "844"],
+  ["wait", "--fn", "typeof window.MM !== 'undefined' && !!window.MM.app"],
+  ["eval", "(async () => { const urls = ['/pose.jpg','/photo1.jpg','/photo2.jpg','/photo3.jpg','/photo4.jpg']; const out = []; for (const u of urls) { await MM.app.testing.loadFromUrl('http://127.0.0.1:8137/.test' + u); await MM.app.testing.runAuto(); const s = JSON.parse(MM.app.testing.dump()); const m = s.measurements, e = s.estimate; out.push({ u, phase: s.phase, head: m && Math.round(m.headPx), span: m && Math.round(m.spanPx), method: m && m.headMethod, used: m && m.headUsed, visFace: m && +m.quality.visFace.toFixed(2), visEars: m && +m.quality.visEars.toFixed(2), widthAgr: m && +m.quality.widthAgreement.toFixed(2), size: m && +m.quality.sizeFactor.toFixed(2), knee: m && Math.round(m.kneeDeg), lean: m && +m.leanDeg.toFixed(1), roll: m && +m.rollDeg.toFixed(1), cm: e && e.cm, conf: e && e.confidence100, band: e && e.band && e.band.key, anchors: e && e.usableAnchors, heads: e && +e.headsTall.toFixed(2) }); } return JSON.stringify(out, null, 1); })()"]
+]

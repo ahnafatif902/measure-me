@@ -1,0 +1,39 @@
+/* MeasureMe — design tokens.
+   Copied 1:1 from the reference build's Tailwind v4 theme (`@theme` in src/styles.css).
+   These four colors, two families and one radius are the entire base palette;
+   everything else in app.css is a derived opacity mix or a Tailwind utility
+   translated to plain CSS. */
+
+:root {
+  /* Type */
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+
+  /* Color */
+  --color-bg: #efe8dc;      /* page background (warm cream) */
+  --color-surface: #fbf7f0; /* cards, filled buttons */
+  --color-ink: #1c1712;     /* text, dark photo frame */
+  --color-primary: #b8431f; /* actions, markers, meter fill */
+
+  /* Shape */
+  --radius-card: 1.5rem;    /* 24px — Tailwind `rounded-3xl` */
+
+  /* Derived mixes.
+     The reference styles use Tailwind opacity modifiers (text-ink/60, bg-ink/10,
+     border-ink/15, bg-primary/90, …). These are those exact colors with alpha,
+     written as plain CSS so the mockup needs no build step. */
+  --ink-80: rgb(28 23 18 / 0.8);
+  --ink-75: rgb(28 23 18 / 0.75);
+  --ink-70: rgb(28 23 18 / 0.7);
+  --ink-60: rgb(28 23 18 / 0.6);
+  --ink-30: rgb(28 23 18 / 0.3);
+  --ink-15: rgb(28 23 18 / 0.15);
+  --ink-10: rgb(28 23 18 / 0.1);
+  --ink-5: rgb(28 23 18 / 0.05);
+  --surface-80: rgb(251 247 240 / 0.8);
+  --surface-75: rgb(251 247 240 / 0.75);
+  --primary-90: rgb(184 67 31 / 0.9);
+
+  /* Elevation — Tailwind `shadow-sm` */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}

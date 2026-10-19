@@ -1,0 +1,10 @@
+[
+  ["open", "http://127.0.0.1:8137/"],
+  ["set", "viewport", "390", "844"],
+  ["wait", "--fn", "typeof window.MM !== 'undefined' && !!window.MM.app"],
+  ["eval", "(async () => { const out=[]; for (const u of ['/photo5.jpg','/photo1.jpg']) { await MM.app.testing.loadFromUrl('http://127.0.0.1:8137/.test'+u); await MM.app.testing.runAuto(); const s=JSON.parse(MM.app.testing.dump()); const m=s.measurements,e=s.estimate; out.push({u,phase:s.phase,head:m&&Math.round(m.headPx),span:m&&Math.round(m.spanPx),method:m&&m.headMethod,visFace:m&&+m.quality.visFace.toFixed(2),agr:m&&+m.quality.widthAgreement.toFixed(2),fitErr:m&&+m.quality.fitErrorFactor.toFixed(2),cm:e&&e.cm,conf:e&&e.confidence100,band:e&&e.band&&e.band.key,anchors:e&&e.usableAnchors,heads:e&&+e.headsTall.toFixed(2),err:e&&e.errorCm,factors:e&&{cov:+e.factors.coverage.toFixed(2),agree:+e.factors.agreement.toFixed(2),pose:+e.factors.poseQ.toFixed(2),frame:+e.factors.frameQ.toFixed(2)}});} return JSON.stringify(out); })()"],
+  ["scroll", "up", "900"],
+  ["screenshot", "D:\\MeasureMe\\docs\\shots\\03-overlay.png"],
+  ["eval", "MM.app.testing.loadFromUrl('http://127.0.0.1:8137/.test/photo5.jpg').then(()=>MM.app.testing.runAuto()).then(()=>'ok')"],
+  ["screenshot", "D:\\MeasureMe\\docs\\shots\\04-result-card.png"]
+]

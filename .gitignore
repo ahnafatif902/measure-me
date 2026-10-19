@@ -1,0 +1,40 @@
+# --- Android / Gradle -------------------------------------------------------
+build/
+.gradle/
+.idea/
+*.iml
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.joblib
+models/*.pkl
+
+# --- Web / Node (dependencies and build output) -----------------------------
+node_modules/
+web/dist/
+
+# --- OS files ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Large binaries ---------------------------------------------------------
+*.apk
+*.aab
+*.onnx
+*.task
+
+# --- Secrets ----------------------------------------------------------------
+.env
+*.keystore
+*.jks
+keystore.properties
+
+# --- Tool artifacts ---------------------------------------------------------
+.freebuff/

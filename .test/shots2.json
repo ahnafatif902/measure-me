@@ -1,0 +1,12 @@
+[
+  ["open", "http://127.0.0.1:8137/"],
+  ["set", "viewport", "390", "844"],
+  ["set", "media", "light"],
+  ["wait", "--fn", "typeof window.MM !== 'undefined' && !!window.MM.app"],
+  ["eval", "(async () => { await MM.app.testing.loadFromUrl('http://127.0.0.1:8137/.test/photo5.jpg'); await MM.app.testing.runAuto(); return MM.app.testing.state().phase; })()"],
+  ["wait", "700"],
+  ["eval", "(() => { document.getElementById('photoFrame').scrollIntoView({ block: 'start', behavior: 'instant' }); return 'scrolled'; })()"],
+  ["wait", "400"],
+  ["screenshot", "docs/shots/09-result-overlay.png"],
+  ["errors"]
+]

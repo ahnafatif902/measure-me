@@ -1,0 +1,47 @@
+﻿Γ£ô MeasureMe ΓÇö estimate height from one photo
+  http://127.0.0.1:8137/
+
+Γ£ô Done
+
+Γ£ô Done
+
+true
+
+"headCm=23"
+
+"{\n \"auto\": [\n  {\n   \"u\": \"/photo1.jpg\",\n   \"phase\": \"result\",\n   \"ok\": true,\n   \"cm\": 188.3,\n   \"conf\": 28,\n   \"band\": \"rough\",\n   \"anchors\": [\n    \"headHeight\",\n    \"shoulderWidth\"\n   ],\n   \"heads\": 8.54,\n   \"notes\": [\n    \"warn: Head-to-body ratio looks unusually high ΓÇö check \"\n   ]\n  },\n  {\n   \"u\": \"/pose.jpg\",\n   \"phase\": \"result\",\n   \"ok\": true,\n   \"cm\": 171.2,\n   \"conf\": 32,\n   \"band\": \"rough\",\n   \"anchors\": [\n    \"headHeight\",\n    \"shoulderWidth\"\n   ],\n   \"heads\": 8.05,\n   \"notes\": []\n  },\n  {\n   \"u\": \"/photo5.jpg\",\n   \"phase\": \"result\",\n   \"ok\": true,\n   \"cm\": 177.7,\n   \"conf\": 53,\n   \"band\": \"fair\",\n   \"anchors\": [\n    \"headWidth\",\n    \"shoulderWidth\"\n   ],\n   \"heads\": 7.58,\n   \"notes\": [\n    \"info: Head height looked unreliable on this photo (til\"\n   ]\n  }\n ]\n}"
+
+"{\"cm23a\":177.7,\"cm21\":168,\"cm25\":187.3,\"cm23b\":177.7,\"widthHeadPx\":166}"
+
+Γ£ô Screenshot saved to docs/shots/02-result.png
+
+"opened"
+
+Γ£ô Screenshot saved to docs/shots/06-calculation-expanded.png
+
+"{\"phase\":\"manual\",\"taps\":3,\"warnShown\":true,\"warnText\":\"About 9.5 heads tall ΓÇö the head was measured too small. Point 2 (chin) is probably too high: tap the very bottom of the \",\"primaryDisabled\":false}"
+
+Γ£ô Screenshot saved to docs/shots/03-manual-warning.png
+
+"{\"cleared\":true,\"movedPx\":9,\"backPx\":0,\"cmBefore\":175,\"cmUp\":195.3,\"draggingCleared\":true}"
+
+"{\"loupeVisible\":true}"
+
+Γ£ô Screenshot saved to docs/shots/04-manual-pins.png
+
+"{\"phase\":\"result\",\"source\":\"manual\",\"cm\":175,\"conf\":64,\"band\":\"fair\",\"heads\":7.58,\"anchors\":[\"headHeight\"],\"err\":12,\"notes\":[\"Manual points: accuracy depends on how precisely you tapped \"],\"autoCm\":177.7}"
+
+Γ£ô Screenshot saved to docs/shots/05-manual-result.png
+
+"gray=19022"
+
+"{\"phase\":\"error\",\"title\":\"We couldn't find a full body\",\"errorCardShown\":true,\"manualBtnShown\":true}"
+
+Γ£ô Screenshot saved to docs/shots/07-error.png
+
+Γ£ô Done
+
+"{\"phase\":\"result\",\"cm\":177.7,\"conf\":53}"
+
+Γ£ô Screenshot saved to docs/shots/08-light-result.png
+
