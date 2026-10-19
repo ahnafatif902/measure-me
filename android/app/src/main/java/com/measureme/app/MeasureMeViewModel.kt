@@ -9,9 +9,9 @@ import androidx.camera.core.ImageProxy
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.measureme.app.capture.ImageCaptureModule
+import com.measureme.app.detect.PoseAnalyzer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -22,14 +22,14 @@ import kotlin.math.round
 import kotlin.math.roundToInt
 
 /**
- * MeasureMeViewModel — the state machine behind Home → Capture → Processing
- * → Result (PRD §5). The UI is a pure function of [UiState]; there is no
- * navigation library, the state IS the navigation.
+ * MeasureMeViewModel — the state machine behind Home → Capture → Result
+ * (PRD §5). The UI is a pure function of [UiState]; there is no navigation
+ * library, the state IS the navigation.
  *
- * Photo intake is real (camera / photo picker / the bundled sample). The
- * measuring backend is stubbed for now: [measure] walks the three real pipeline
- * stages as a timer and [stubResult] returns the UI Spec's placeholder values,
- * so the whole flow runs end-to-end while the geometry lands.
+ * Photo intake is real (camera / photo picker / the bundled sample) and the
+ * measuring is real too: [analyzeImage] hands the photo to [PoseAnalyzer],
+ * which runs MediaPipe's Pose Landmarker and the Mode A (Proportions)
+ * geometry. There is no stub data left anywhere in the app.
  */
 class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -43,13 +43,29 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Stubbed result — mirrors the pipeline's HeightEstimate + Report shape.
-     * Values are the UI Spec §11 placeholders (167 cm, 161–173, 92/100, 7.3 heads).
+     * The measurement outcome. The Result screen renders exactly this:
+     * Loading → the processing animation, Success → the number,
+     * Error → a warning card with a way out.
      */
+    sealed interface MeasureState {
+        /** Nothing measured yet. */
+        data object Idle : MeasureState
+
+        /** The engine is running; [step] is 0..3 real pipeline stages done. */
+        data class Loading(val step: Int = 0) : MeasureState
+
+        /** A measurement — every field comes from the photo. */
+        data class Success(val result: Result) : MeasureState
+
+        /** The photo could not be measured; [message] says why. */
+        data class Error(val message: String) : MeasureState
+    }
+
+    /** What the Result screen shows after a successful measurement. */
     data class Result(
         val heightCm: Int,
-        val rangeLowCm: Int,
-        val rangeHighCm: Int,
+        /** Authentic run metadata: the model that ran + its error margin. */
+        val metadataString: String = "Proportions Model · Margin ±5 cm",
         val quality: Int,
         val qualityLabel: String,
         val headsTall: Double,
@@ -61,20 +77,18 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         val screen: Screen = Screen.HOME,
         val mode: Mode = Mode.PROPORTIONS,
         val photo: Bitmap? = null,
-        /** A photo is being decoded (camera screen shows its own busy overlay). */
+        /** A photo is being decoded (the camera screen shows its own overlay). */
         val loading: Boolean = false,
-        /** The capture screen is showing the processing view. */
-        val processing: Boolean = false,
-        /** Completed pipeline stages, 0..3 — drives the progress bar and step rows. */
-        val step: Int = 0,
-        val result: Result? = null,
-        /** One specific, fixable reason when a photo cannot be used (FR-2). */
+        /** The measurement outcome — drives the whole Result screen. */
+        val measure: MeasureState = MeasureState.Idle,
+        /** Set when the photo itself could not be read. */
         val failReason: String? = null,
     )
 
     private val prefs = app.getSharedPreferences("measureme", Context.MODE_PRIVATE)
     private val capture = ImageCaptureModule(app)
-    private var measureJob: Job? = null
+    private val analyzer = PoseAnalyzer(app)
+    private var analyzeJob: Job? = null
 
     private val _ui = MutableStateFlow(UiState(mode = loadMode()))
     val ui: StateFlow<UiState> = _ui
@@ -86,28 +100,37 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
     /** Mode selection persists across launches (PRD §5: stores last-used mode). */
     fun selectMode(mode: Mode) {
         prefs.edit().putString(KEY_MODE, mode.name).apply()
-        _ui.update { if (it.processing) it else it.copy(mode = mode) }
+        _ui.update { if (isLoading) it else it.copy(mode = mode) }
     }
 
     fun continueToCapture() = _ui.update {
-        if (it.processing) it else it.copy(screen = Screen.CAPTURE, failReason = null)
+        if (isLoading) it else it.copy(screen = Screen.CAPTURE, failReason = null)
     }
 
-    fun backToHome() = _ui.update { if (it.processing) it else it.copy(screen = Screen.HOME) }
+    fun backToHome() = _ui.update { if (isLoading) it else it.copy(screen = Screen.HOME) }
 
     fun goCamera() = _ui.update {
-        if (it.processing) it else it.copy(screen = Screen.CAMERA, failReason = null)
+        if (isLoading) it else it.copy(screen = Screen.CAMERA, failReason = null)
     }
 
-    fun cameraBack() = _ui.update { if (it.processing) it else it.copy(screen = Screen.CAPTURE) }
+    fun cameraBack() = _ui.update { if (isLoading) it else it.copy(screen = Screen.CAPTURE) }
 
     /** Result → Capture with the photo kept, ready for another run. */
     fun measureAgain() = _ui.update {
-        it.copy(screen = Screen.CAPTURE, result = null, step = 0)
+        if (isLoading) it
+        else it.copy(screen = Screen.CAPTURE, measure = MeasureState.Idle, failReason = null)
     }
 
+    private val isLoading: Boolean
+        get() = _ui.value.measure is MeasureState.Loading
+
+    /** The last-used mode, restored on launch (PRD §5). */
+    private fun loadMode(): Mode = runCatching {
+        Mode.valueOf(prefs.getString(KEY_MODE, Mode.PROPORTIONS.name)!!)
+    }.getOrDefault(Mode.PROPORTIONS)
+
     // ------------------------------------------------------------------
-    // Photo intake (real, not stubbed)
+    // Photo intake (real)
     // ------------------------------------------------------------------
 
     fun onPhotoPicked(uri: Uri) {
@@ -135,8 +158,8 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
             val bmp = withContext(Dispatchers.IO) { decode() }
             _ui.update {
                 it.copy(
-                    photo = bmp, loading = false, processing = false, step = 0,
-                    result = null, screen = Screen.CAPTURE,
+                    photo = bmp, loading = false, measure = MeasureState.Idle,
+                    screen = Screen.CAPTURE,
                 )
             }
         } catch (c: kotlinx.coroutines.CancellationException) {
@@ -155,60 +178,68 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ------------------------------------------------------------------
-    // Processing — the three PRD stages, currently a staged timer
+    // Measurement — the real engine
     // ------------------------------------------------------------------
 
+    /** Measure the photo currently on screen. */
     fun measure() {
-        if (_ui.value.photo == null || _ui.value.processing) return
-        measureJob?.cancel()
-        measureJob = viewModelScope.launch {
-            _ui.update { it.copy(processing = true, step = 0, failReason = null, result = null) }
-
-            // PRD §5: find person → locate head and feet → work out the scale,
-            // under 3 s on a mid-range phone. The real pipeline replaces the
-            // delays stage by stage (UI Spec §8: no fake progress).
-            listOf(650L, 650L, 700L).forEachIndexed { index, ms ->
-                delay(ms)
-                _ui.update { it.copy(step = index + 1) }
-            }
-            delay(200)
-
-            // ------------------------------------------------------------------
-            // TODO: Wire up GeometryEngine — replace stubResult() with the real
-            // pipeline: detector.detect(photo) → geometry.derive(...) →
-            // geometry.estimate(...) → confidence.compute(...). The quality gate
-            // (FR-2) and its one-line failure reasons belong here too.
-            // ------------------------------------------------------------------
-            val result = stubResult()
-            _ui.update { it.copy(result = result, processing = false, screen = Screen.RESULT) }
-        }
+        val photo = _ui.value.photo ?: return
+        analyzeImage(photo)
     }
 
     /**
-     * UI Spec §11 placeholders — replaced when the pipeline is wired up
-     * (see the TODO in [measure]). The range is derived from the estimate via
-     * the MVP's ±6 cm error margin, so the dummy data can never contradict
-     * itself. Every displayed string is computed from these values; none are
-     * hardcoded in the UI.
+     * Run the real measurement on [bitmap].
+     *
+     * The screen moves to Result immediately and the Result screen renders
+     * the processing animation while the engine works; it then shows either
+     * the number or a specific reason the photo could not be measured.
      */
-    private fun stubResult(): Result {
-        val estimateCm = 167f // TODO: Wire up GeometryEngine — real estimate
-        val marginCm = 6f
-        return Result(
-            heightCm = estimateCm.roundToInt(),
-            rangeLowCm = (estimateCm - marginCm).roundToInt(),
-            rangeHighCm = (estimateCm + marginCm).roundToInt(),
-            quality = 92,
-            qualityLabel = "Clean shot",
-            headsTall = 7.3,
-            personPx = 1400,
-            headPx = 193,
-        )
+    fun analyzeImage(bitmap: Bitmap) {
+        if (analyzeJob?.isActive == true) return
+        analyzeJob = viewModelScope.launch {
+            _ui.update {
+                it.copy(
+                    screen = Screen.RESULT,
+                    measure = MeasureState.Loading(0),
+                    failReason = null,
+                )
+            }
+
+            val outcome = analyzer.analyze(bitmap) { step ->
+                _ui.update { s ->
+                    if (s.measure is MeasureState.Loading) {
+                        s.copy(measure = MeasureState.Loading(step))
+                    } else {
+                        s
+                    }
+                }
+            }
+
+            _ui.update { s ->
+                when (outcome) {
+                    is PoseAnalyzer.Outcome.Success ->
+                        s.copy(measure = MeasureState.Success(toResult(outcome)))
+
+                    is PoseAnalyzer.Outcome.Failure.NoPerson ->
+                        s.copy(measure = MeasureState.Error(NO_PERSON_MESSAGE))
+
+                    is PoseAnalyzer.Outcome.Failure.Unmeasurable ->
+                        s.copy(measure = MeasureState.Error(outcome.message))
+                }
+            }
+        }
     }
 
-    private fun loadMode(): Mode = runCatching {
-        Mode.valueOf(prefs.getString(KEY_MODE, Mode.PROPORTIONS.name)!!)
-    }.getOrDefault(Mode.PROPORTIONS)
+    /** Build the display result from a real measurement. */
+    private fun toResult(o: PoseAnalyzer.Outcome.Success) = Result(
+        heightCm = o.estimatedHeightCm.roundToInt(),
+        metadataString = "$MODEL_LABEL Model · Margin ±${o.errorMarginCm} cm",
+        quality = o.qualityScore,
+        qualityLabel = o.qualityLabel,
+        headsTall = o.nHeads,
+        personPx = o.personPx,
+        headPx = o.headPx,
+    )
 
     // ------------------------------------------------------------------
     // DEBUG-ONLY entry points for automated on-device verification:
@@ -216,15 +247,25 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
     //   adb shell am start -n com.measureme.app/.MainActivity \
     //       --es debug_screen result
     //   adb shell am start -n com.measureme.app/.MainActivity \
-    //       --es debug_photo /sdcard/Android/data/com.measureme.app/files/test.jpg
+    //       --es debug_photo /data/data/com.measureme.app/cache/photo1.jpg
     // ------------------------------------------------------------------
 
     fun debugJump(target: String) {
         when (target.lowercase()) {
             "home" -> _ui.update { it.copy(screen = Screen.HOME) }
-            "capture" -> _ui.update { it.copy(screen = Screen.CAPTURE, processing = false) }
-            "result" -> _ui.update {
-                it.copy(result = stubResult(), processing = false, step = 3, screen = Screen.RESULT)
+            "capture" -> _ui.update { it.copy(screen = Screen.CAPTURE) }
+            "result" -> {
+                val photo = _ui.value.photo
+                if (photo != null) {
+                    analyzeImage(photo) // the real engine, end to end
+                } else {
+                    _ui.update {
+                        it.copy(
+                            screen = Screen.RESULT,
+                            measure = MeasureState.Error("No photo yet — take one first."),
+                        )
+                    }
+                }
             }
         }
     }
@@ -233,22 +274,27 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         Log.d(TAG, "debugPhoto: $path")
         viewModelScope.launch {
             load {
-                if (path == "sample") capture.decodeSample()
-                else capture.decodeFile(java.io.File(path))
+                if (path == "sample") capture.decodeSample() else capture.decodeFile(java.io.File(path))
             }
-            if (_ui.value.photo != null) measure()
+            _ui.value.photo?.let { analyzeImage(it) }
         }
     }
 
     companion object {
         private const val KEY_MODE = "mode"
         private const val TAG = "MeasureMe"
+
+        /** The model that actually runs: Mode A, proportions from one photo. */
+        private const val MODEL_LABEL = "Proportions"
+
+        private const val NO_PERSON_MESSAGE =
+            "No person identified. Please ensure your full body is in the frame."
     }
 }
 
 /**
  * Centimetres → feet and inches, rounded to the nearest whole inch
- * (167f → "5 ft 6 in"). Inches that round up to 12 carry into the next
+ * (159f → "5 ft 3 in"). Inches that round up to 12 carry into the next
  * foot (182.7f → "6 ft 0 in").
  */
 fun cmToFtIn(cm: Float): String {

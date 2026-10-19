@@ -29,6 +29,9 @@ Thumbs.db
 *.aab
 *.onnx
 *.task
+# ...except the MediaPipe pose model, which the app loads from assets/ at
+# runtime. Without it in the repo the app cannot detect a person.
+!android/app/src/main/assets/pose_landmarker_full.task
 
 # --- Secrets ----------------------------------------------------------------
 .env

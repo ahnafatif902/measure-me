@@ -4,8 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,7 +60,7 @@ fun CaptureScreen(
 
         MmTopBar(
             title = state.mode.label,
-            onBack = if (state.processing) null else onBack,
+            onBack = onBack,
         )
 
         Spacer(Modifier.height(16.dp))
@@ -71,77 +69,67 @@ fun CaptureScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        Crossfade(
-            targetState = state.processing,
-            animationSpec = tween(220),
-            label = "captureMode",
-        ) { processing ->
-            if (processing) {
-                ProcessingScreen(step = state.step)
-            } else {
-                Column {
-                    CheckListRow(
-                        title = "Head to toe in the frame",
-                        detail = "Face the camera and stand tall. Leave a hand's width above and below.",
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    CheckListRow(
-                        title = "Phone level, around chest height",
-                        detail = "Hold it upright and still.",
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    CheckListRow(
-                        title = "Even, bright light",
-                        detail = "Face the light, avoid a window behind you.",
-                    )
+        Column {
+            CheckListRow(
+                title = "Head to toe in the frame",
+                detail = "Face the camera and stand tall. Leave a hand's width above and below.",
+            )
+            Spacer(Modifier.height(14.dp))
+            CheckListRow(
+                title = "Phone level, around chest height",
+                detail = "Hold it upright and still.",
+            )
+            Spacer(Modifier.height(14.dp))
+            CheckListRow(
+                title = "Even, bright light",
+                detail = "Face the light, avoid a window behind you.",
+            )
 
-                    Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
 
-                    Row(Modifier.fillMaxWidth()) {
-                        MmSecondaryButton(
-                            label = "Take photo",
-                            icon = MmIcons.Camera,
-                            onClick = onTakePhoto,
-                            modifier = Modifier.weight(1f),
+            Row(Modifier.fillMaxWidth()) {
+                MmSecondaryButton(
+                    label = "Take photo",
+                    icon = MmIcons.Camera,
+                    onClick = onTakePhoto,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(12.dp))
+                MmSecondaryButton(
+                    label = "Choose photo",
+                    icon = MmIcons.ImagePlus,
+                    onClick = {
+                        galleryLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                         )
-                        Spacer(Modifier.width(12.dp))
-                        MmSecondaryButton(
-                            label = "Choose photo",
-                            icon = MmIcons.ImagePlus,
-                            onClick = {
-                                galleryLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                                )
-                            },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        MmGhostButton(label = "Use a sample", onClick = onSample)
-                    }
-
-                    if (state.failReason != null) {
-                        Spacer(Modifier.height(12.dp))
-                        FailureBanner(reason = state.failReason)
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    MmPrimaryButton(
-                        label = "Measure my height",
-                        onClick = onMeasure,
-                        enabled = state.photo != null,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    Spacer(Modifier.height(16.dp))
-
-                    PrivacyLine()
-                }
+                    },
+                    modifier = Modifier.weight(1f),
+                )
             }
+
+            Spacer(Modifier.height(6.dp))
+
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                MmGhostButton(label = "Use a sample", onClick = onSample)
+            }
+
+            if (state.failReason != null) {
+                Spacer(Modifier.height(12.dp))
+                FailureBanner(reason = state.failReason)
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            MmPrimaryButton(
+                label = "Measure my height",
+                onClick = onMeasure,
+                enabled = state.photo != null,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            PrivacyLine()
         }
 
         Spacer(Modifier.height(28.dp))

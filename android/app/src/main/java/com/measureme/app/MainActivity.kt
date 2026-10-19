@@ -89,10 +89,10 @@ private fun AppRoot(vm: MeasureMeViewModel, state: MeasureMeViewModel.UiState) {
     val shift = with(LocalDensity.current) { 12.dp.roundToPx() }
 
     // System back: Camera → Capture, Capture → Home, Result → Capture.
-    // While processing, back does nothing (the spec hides the back button).
+    // While the engine is running, back does nothing (the work is real).
     BackHandler(enabled = state.screen != Screen.HOME) {
         when {
-            state.processing -> Unit
+            state.measure is MeasureMeViewModel.MeasureState.Loading -> Unit
             state.screen == Screen.CAMERA -> vm.cameraBack()
             state.screen == Screen.CAPTURE -> vm.backToHome()
             state.screen == Screen.RESULT -> vm.measureAgain()
@@ -134,9 +134,11 @@ private fun AppRoot(vm: MeasureMeViewModel, state: MeasureMeViewModel.UiState) {
                 onBack = vm::cameraBack,
             )
 
-            Screen.RESULT -> state.result?.let { result ->
-                ResultScreen(result = result, onMeasureAgain = vm::measureAgain)
-            }
+            Screen.RESULT -> ResultScreen(
+                state = state.measure,
+                onMeasureAgain = vm::measureAgain,
+                onTryAgain = vm::measureAgain,
+            )
         }
     }
 }

@@ -1,7 +1,7 @@
 // app/build.gradle.kts — the only module. Dependencies are deliberately few:
 //  * compose-bom      → UI toolkit (screens declared once, state-driven)
 //  * camera-*         → CameraX preview + still capture (no ARCore, by design)
-//  * pose-detection   → ML Kit BlazePose, BUNDLED model → works fully offline
+//  * tasks-vision     → MediaPipe Pose Landmarker, model in assets/ → offline
 //  * exifinterface    → rotate gallery photos the right way up
 //  * lifecycle/activity-compose → ViewModel + single-activity plumbing
 plugins {
@@ -56,9 +56,11 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$camerax")
     implementation("androidx.camera:camera-view:$camerax")
 
-    // On-device pose estimation. "pose-detection" bundles the model INSIDE the
-    // app (~30 MB) so detection works offline right after install.
-    implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
+    // On-device pose estimation. MediaPipe Tasks ships the runtime as a
+    // library and the model (pose_landmarker_full.task, ~9 MB) lives in
+    // assets/ — so detection works fully offline right after install.
+    implementation("com.google.mediapipe:tasks-vision:0.10.9")
+    implementation("com.google.mediapipe:tasks-core:0.10.9")
 
     implementation("androidx.exifinterface:exifinterface:1.3.7")
 
