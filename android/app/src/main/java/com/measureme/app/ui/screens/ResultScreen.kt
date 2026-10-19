@@ -2,6 +2,7 @@ package com.measureme.app.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,15 +17,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.measureme.app.MeasureMeViewModel
+import com.measureme.app.cmToFtIn
 import com.measureme.app.ui.components.MmCard
 import com.measureme.app.ui.components.MmPrimaryButton
 import com.measureme.app.ui.components.MmProgressBar
@@ -40,7 +44,9 @@ import kotlin.math.roundToInt
  * small unit, imperial value and range on the same line, the quality bar and
  * caveat, two stat tiles, one line about heads tall. Card enters with a
  * 220 ms fade and a 12 px rise; the number counts 0 → value over 1.2 s
- * (ease-out), and reduced motion shows the final value instantly.
+ * (ease-out), the imperial + range line states the settled estimate and
+ * fades in once the count-up finishes, and reduced motion shows the final
+ * values instantly.
  */
 @Composable
 fun ResultScreen(
@@ -59,6 +65,7 @@ fun ResultScreen(
 
     // Count-up: 0 → result over 1.2 s.
     val count = remember { Animatable(0f) }
+    val countDone = remember { mutableStateOf(reduced) }
     LaunchedEffect(result.heightCm) {
         if (reduced) {
             count.snapTo(result.heightCm.toFloat())
@@ -68,7 +75,17 @@ fun ResultScreen(
                 tween(1200, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)),
             )
         }
+        countDone.value = true
     }
+
+    // The imperial + range line states the *settled* estimate, never the
+    // animating value, so it can't disagree with the number on screen — it
+    // just fades in once the count-up has finished.
+    val lineAlpha = animateFloatAsState(
+        targetValue = if (countDone.value) 1f else 0f,
+        animationSpec = tween(220),
+        label = "resultLineAlpha",
+    )
 
     Column(
         modifier = Modifier
@@ -111,8 +128,10 @@ fun ResultScreen(
             Spacer(Modifier.height(6.dp))
 
             Text(
-                "${result.ftInText} · Likely ${result.rangeLowCm}\u2013${result.rangeHighCm} cm",
+                "${cmToFtIn(result.heightCm.toFloat())} · " +
+                    "Likely ${result.rangeLowCm}\u2013${result.rangeHighCm} cm",
                 style = MmType.resultLine,
+                modifier = Modifier.alpha(lineAlpha.value),
             )
 
             Spacer(Modifier.height(20.dp))

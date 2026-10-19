@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.floor
+import kotlin.math.round
+import kotlin.math.roundToInt
 
 /**
  * MeasureMeViewModel — the state machine behind Home → Capture → Processing
@@ -52,7 +55,6 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         val headsTall: Double,
         val personPx: Int,
         val headPx: Int,
-        val ftInText: String,
     )
 
     data class UiState(
@@ -182,18 +184,27 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** UI Spec §11 placeholders — replaced when the pipeline is wired up. */
-    private fun stubResult(): Result = Result(
-        heightCm = 167,
-        rangeLowCm = 161,
-        rangeHighCm = 173,
-        quality = 92,
-        qualityLabel = "Clean shot",
-        headsTall = 7.3,
-        personPx = 1400,
-        headPx = 193,
-        ftInText = "5 ft 6 in",
-    )
+    /**
+     * UI Spec §11 placeholders — replaced when the pipeline is wired up
+     * (see the TODO in [measure]). The range is derived from the estimate via
+     * the MVP's ±6 cm error margin, so the dummy data can never contradict
+     * itself. Every displayed string is computed from these values; none are
+     * hardcoded in the UI.
+     */
+    private fun stubResult(): Result {
+        val estimateCm = 167f // TODO: Wire up GeometryEngine — real estimate
+        val marginCm = 6f
+        return Result(
+            heightCm = estimateCm.roundToInt(),
+            rangeLowCm = (estimateCm - marginCm).roundToInt(),
+            rangeHighCm = (estimateCm + marginCm).roundToInt(),
+            quality = 92,
+            qualityLabel = "Clean shot",
+            headsTall = 7.3,
+            personPx = 1400,
+            headPx = 193,
+        )
+    }
 
     private fun loadMode(): Mode = runCatching {
         Mode.valueOf(prefs.getString(KEY_MODE, Mode.PROPORTIONS.name)!!)
@@ -233,4 +244,20 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         private const val KEY_MODE = "mode"
         private const val TAG = "MeasureMe"
     }
+}
+
+/**
+ * Centimetres → feet and inches, rounded to the nearest whole inch
+ * (167f → "5 ft 6 in"). Inches that round up to 12 carry into the next
+ * foot (182.7f → "6 ft 0 in").
+ */
+fun cmToFtIn(cm: Float): String {
+    val totalInches = cm / 2.54f
+    var feet = floor(totalInches / 12).toInt()
+    var inches = round(totalInches % 12).toInt()
+    if (inches == 12) {
+        feet += 1
+        inches = 0
+    }
+    return "$feet ft $inches in"
 }
