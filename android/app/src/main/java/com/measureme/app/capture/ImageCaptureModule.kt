@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import androidx.camera.core.ImageProxy
+import java.io.ByteArrayInputStream
 import java.io.File
 import androidx.exifinterface.media.ExifInterface
 import com.measureme.app.R
@@ -21,6 +22,8 @@ import kotlin.math.sqrt
  *
  *  - Gallery import  : decodeUri() (EXIF rotation + downscale, memory-safe)
  *  - Camera capture  : fromImageProxy() (CameraX JPEG → Bitmap)
+ *  - EXIF optics     : the 35 mm-equivalent focal length rides along with
+ *                      every decode (DecodedPhoto) for Modes B and C
  *  - Image quality   : stats() (mean luminance / contrast, in one cheap pass)
  *
  * Downscaling to MAX_ANALYSIS_DIM matters on low/mid-range phones: BlazePose
@@ -29,8 +32,16 @@ import kotlin.math.sqrt
  */
 class ImageCaptureModule(private val context: Context) {
 
+    /**
+     * A decoded photo plus whatever its header says about the camera's
+     * optics. Modes B and C need the focal length to convert pixels into
+     * real-world geometry; null means "this photo doesn't carry one" and the
+     * engine will fall back to Proportions with a visible warning.
+     */
+    data class DecodedPhoto(val bitmap: Bitmap, val focalLength35mmMm: Double?)
+
     /** Decode a gallery/content Uri the right way up and downscaled. */
-    fun decodeUri(uri: Uri, maxDim: Int = AppConstants.MAX_ANALYSIS_DIM): Bitmap {
+    fun decodeUri(uri: Uri, maxDim: Int = AppConstants.MAX_ANALYSIS_DIM): DecodedPhoto {
         try {
             // Pass 1: bounds only (no pixels decoded).
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -41,12 +52,14 @@ class ImageCaptureModule(private val context: Context) {
                 throw MeasureMeException.ImageUnreadable(null)
             }
 
-            // EXIF orientation — without this, portrait photos come in sideways
-            // and every vertical measurement is nonsense.
+            // EXIF orientation + optics in one pass: orientation keeps portrait
+            // photos upright; the 35 mm-equivalent focal length feeds f_px for
+            // Modes B/C. One stream open serves both.
+            var f35mm = 0.0
             val orientation = context.contentResolver.openInputStream(uri)?.use { stream ->
-                ExifInterface(stream).getAttributeInt(
-                    ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL
-                )
+                val exif = ExifInterface(stream)
+                f35mm = exif.getAttributeDouble(ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM, 0.0)
+                exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
             } ?: ExifInterface.ORIENTATION_NORMAL
 
             // Pass 2: decode at a sample size that lands just under maxDim.
@@ -57,7 +70,7 @@ class ImageCaptureModule(private val context: Context) {
                 BitmapFactory.decodeStream(it, null, opts)
             } ?: throw MeasureMeException.ImageUnreadable(null)
 
-            return applyExif(decoded, orientation)
+            return DecodedPhoto(applyExif(decoded, orientation), f35mm.takeIf { it > 0.0 })
         } catch (t: MeasureMeException) {
             throw t
         } catch (t: Throwable) {
@@ -70,7 +83,7 @@ class ImageCaptureModule(private val context: Context) {
      * going through ContentResolver. Used by the debug_photo verification hook
      * (MIUI privacy layers can veto file:// URIs presented to the resolver).
      */
-    fun decodeFile(file: File, maxDim: Int = AppConstants.MAX_ANALYSIS_DIM): Bitmap {
+    fun decodeFile(file: File, maxDim: Int = AppConstants.MAX_ANALYSIS_DIM): DecodedPhoto {
         try {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             file.inputStream().use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -78,10 +91,11 @@ class ImageCaptureModule(private val context: Context) {
                 throw MeasureMeException.ImageUnreadable(null)
             }
 
+            var f35mm = 0.0
             val orientation = file.inputStream().use { stream ->
-                ExifInterface(stream).getAttributeInt(
-                    ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL
-                )
+                val exif = ExifInterface(stream)
+                f35mm = exif.getAttributeDouble(ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM, 0.0)
+                exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
             }
 
             var sample = 1
@@ -92,7 +106,7 @@ class ImageCaptureModule(private val context: Context) {
                 )
             } ?: throw MeasureMeException.ImageUnreadable(null)
 
-            return applyExif(decoded, orientation)
+            return DecodedPhoto(applyExif(decoded, orientation), f35mm.takeIf { it > 0.0 })
         } catch (t: MeasureMeException) {
             throw t
         } catch (t: Throwable) {
@@ -101,7 +115,7 @@ class ImageCaptureModule(private val context: Context) {
     }
 
     /** CameraX still capture → JPEG bytes → upright, downscaled Bitmap. */
-    fun fromImageProxy(proxy: ImageProxy, maxDim: Int = AppConstants.MAX_ANALYSIS_DIM): Bitmap {
+    fun fromImageProxy(proxy: ImageProxy, maxDim: Int = AppConstants.MAX_ANALYSIS_DIM): DecodedPhoto {
         try {
             val buffer = proxy.planes[0].buffer
             val bytes = ByteArray(buffer.remaining())
@@ -116,8 +130,22 @@ class ImageCaptureModule(private val context: Context) {
                 BitmapFactory.Options().apply { inSampleSize = sample }
             ) ?: throw MeasureMeException.ImageUnreadable(null)
 
-            // CameraX tells us how to rotate the JPEG; no EXIF reading needed.
-            return rotate(decoded, proxy.imageInfo.rotationDegrees)
+            // CameraX tells us how to rotate the JPEG; EXIF is only needed for
+            // the focal length (Modes B/C). Reading it costs nothing — the
+            // bytes are already in hand.
+            val f35mm = try {
+                ExifInterface(ByteArrayInputStream(bytes))
+                    .getAttributeDouble(ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM, 0.0)
+            } catch (t: Throwable) {
+                0.0
+            }
+
+            // Rotate upright with CameraX's rotation hint, then hand back the
+            // bitmap together with the optics.
+            return DecodedPhoto(
+                rotate(decoded, proxy.imageInfo.rotationDegrees),
+                f35mm.takeIf { it > 0.0 },
+            )
         } catch (t: MeasureMeException) {
             throw t
         } catch (t: Throwable) {
@@ -130,7 +158,7 @@ class ImageCaptureModule(private val context: Context) {
      * It is upright and EXIF-free by construction, so this is the plain
      * resource decode + the same powers-of-two downscale as decodeUri().
      */
-    fun decodeSample(maxDim: Int = AppConstants.MAX_ANALYSIS_DIM): Bitmap {
+    fun decodeSample(maxDim: Int = AppConstants.MAX_ANALYSIS_DIM): DecodedPhoto {
         try {
             val res = context.resources
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -144,7 +172,7 @@ class ImageCaptureModule(private val context: Context) {
                 res, R.drawable.sample_photo,
                 BitmapFactory.Options().apply { inSampleSize = sample }
             ) ?: throw MeasureMeException.ImageUnreadable(null)
-            return decoded
+            return DecodedPhoto(decoded, null)
         } catch (t: MeasureMeException) {
             throw t
         } catch (t: Throwable) {

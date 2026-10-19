@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.common.util.concurrent.ListenableFuture
+import com.measureme.app.MeasureMeViewModel
 import com.measureme.app.ui.components.MmIconButton
 import com.measureme.app.ui.components.MmSecondaryButton
 import com.measureme.app.ui.icons.MmIcons
@@ -68,11 +69,12 @@ import kotlin.coroutines.resumeWithException
 
 /**
  * The camera: back camera preview with CameraX, MINIMIZE_LATENCY stills, and
- * the Photo Picker for the gallery. Restyled to the v1.0 language — the same
- * dark frame, now with the accent shutter and a secondary Choose photo.
+ * the Photo Picker for the gallery. The frame stays completely clean — live
+ * feed only, with a mode-specific caption line instead of any drawn overlay.
  */
 @Composable
 fun CameraScreen(
+    mode: MeasureMeViewModel.Mode,
     working: Boolean,
     onPhotoPicked: (Uri) -> Unit,
     onPhotoCaptured: (ImageProxy) -> Unit,
@@ -166,7 +168,7 @@ fun CameraScreen(
             Spacer(Modifier.width(14.dp))
             Column {
                 Text("Take a photo", style = MmType.wordmark)
-                Text("Head to feet in frame", style = MmType.caption)
+                Text(cameraSubtitle(mode), style = MmType.caption)
             }
         }
 
@@ -246,10 +248,24 @@ fun CameraScreen(
         Spacer(Modifier.height(16.dp))
 
         Text(
-            "Head to feet in frame, a little margin, even light, and hold the phone level.",
+            when (mode) {
+                MeasureMeViewModel.Mode.PROPORTIONS ->
+                    "Head to feet in frame, a little margin, even light, and hold the phone level."
+                MeasureMeViewModel.Mode.HORIZON ->
+                    "Hold the phone level at the height you picked — the tilt is read when you shoot."
+                MeasureMeViewModel.Mode.REFERENCE ->
+                    "Lay an A4 sheet flat beside your feet, all four corners visible, then shoot."
+            },
             style = MmType.caption,
         )
     }
+}
+
+/** One caption line under "Take a photo", per mode — the only overlay there is. */
+private fun cameraSubtitle(mode: MeasureMeViewModel.Mode): String = when (mode) {
+    MeasureMeViewModel.Mode.PROPORTIONS -> "Head to feet in frame"
+    MeasureMeViewModel.Mode.HORIZON -> "Hold level · full body in frame"
+    MeasureMeViewModel.Mode.REFERENCE -> "A4 on the floor · corners visible"
 }
 
 @Composable

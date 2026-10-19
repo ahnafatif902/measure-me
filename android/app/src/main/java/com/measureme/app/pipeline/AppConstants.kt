@@ -39,6 +39,11 @@ object AppConstants {
     const val HEIGHT_HARD_MIN_CM = 120.0   // outside → treat detection as failed
     const val HEIGHT_HARD_MAX_CM = 235.0
 
+    // ---- Modes B/C error budgets (fraction of the measured height) ---------
+    const val HORIZON_ERROR_FRACTION = 0.05    // 5%: the horizon ruler, no distance needed
+    const val REFERENCE_ERROR_FRACTION = 0.035 // 3.5%: the A4 pins the camera pose
+    const val FALLBACK_MARGIN_SCALE = 1.5      // widened margin when B/C falls back to A
+
     // ---- Confidence rules ---------------------------------------------------
     const val MAX_CONFIDENCE = 92               // never claim 98–100: this method can't
     const val MANUAL_MAX_CONFIDENCE = 65        // manual taps are never as good as detection

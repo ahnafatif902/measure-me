@@ -19,6 +19,12 @@ android {
         targetSdk = 34
         versionCode = 3
         versionName = "3.0"
+        ndk {
+            // OpenCV's AAR ships native libs for all four ABIs (~112 MB). The
+            // app targets real phones only, so the two ARM variants are kept
+            // and the APK roughly halves in size.
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {
@@ -63,6 +69,12 @@ dependencies {
     implementation("com.google.mediapipe:tasks-core:0.10.9")
 
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // OpenCV (official Maven Central build): only used for Mode C's A4 sheet
+    // detection (contours + quad fitting). Initialised once in MeasureMeApp
+    // via OpenCVLoader.initLocal(); every detector call checks availability
+    // and degrades to the Proportions path if native libs are missing.
+    implementation("org.opencv:opencv:4.10.0")
 
     // JVM unit tests for the pure-Kotlin pipeline (GeometryModule etc.).
     testImplementation("junit:junit:4.13.2")

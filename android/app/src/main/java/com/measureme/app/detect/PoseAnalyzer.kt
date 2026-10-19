@@ -2,14 +2,18 @@ package com.measureme.app.detect
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
+import com.measureme.app.capture.A4Detector
 import com.measureme.app.capture.ImageCaptureModule
 import com.measureme.app.pipeline.AppConstants
 import com.measureme.app.pipeline.ConfidenceModule
+import com.measureme.app.pipeline.GeometryEngine
+import com.measureme.app.pipeline.GeometryInput
 import com.measureme.app.pipeline.GeometryModule
 import com.measureme.app.pipeline.LandmarkName
 import com.measureme.app.pipeline.MappedLandmark
@@ -21,7 +25,7 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /**
- * PoseAnalyzer — the real measuring engine (Mode A, "Proportions").
+ * PoseAnalyzer — the real measuring engine (all three modes).
  *
  * 1. MediaPipe Pose Landmarker runs on the photo (IMAGE mode, bundled model,
  *    fully on-device — no network, no Play Services download).
@@ -35,6 +39,11 @@ import kotlin.math.roundToInt
  * 4. The same landmarks are also handed to the repo's real pipeline
  *    ([GeometryModule] → [ConfidenceModule]) to produce the crown-based
  *    estimate, the 0–92 quality score and the honest error margin.
+ * 5. [GeometryEngine] then routes by the requested [GeometryInput]: Mode A
+ *    uses the numbers above; Mode B solves the horizon geometry with the
+ *    shutter-time tilt; Mode C detects an A4 sheet and solves the camera
+ *    pose from it. B/C fall back to A — with a visible cause-specific
+ *    warning — whenever their inputs are missing or unusable.
  *
  * Nothing here is stubbed: every number the UI shows comes from the photo.
  */
@@ -65,6 +74,14 @@ class PoseAnalyzer(private val context: Context) {
             val errorMarginCm: Int,
             /** Which formula produced the number (shown in the trace). */
             val formulaText: String,
+            /** Which model actually answered: PROPORTIONS / HORIZON / REFERENCE. */
+            val solved: GeometryEngine.Solved,
+            /** True when Mode B/C was requested but Proportions had to stand in. */
+            val fallback: Boolean,
+            /** Cause-specific fallback sentence, or null. Always shown if set. */
+            val warning: String? = null,
+            /** Camera height the math used (Mode B input or Mode C solution). */
+            val cameraHeightCm: Double? = null,
         ) : Outcome
 
         /** Why the photo could not be measured. */
@@ -80,16 +97,25 @@ class PoseAnalyzer(private val context: Context) {
     private var landmarker: PoseLandmarker? = null
     private val lock = Mutex()
     private val geometry = GeometryModule()
+    private val engine = GeometryEngine()
     private val confidence = ConfidenceModule()
     private val imageStats = ImageCaptureModule(context)
+    private val a4 = A4Detector()
 
     /**
      * Analyse one photo.
      *
+     * @param input which model to run — Proportions, Horizon or Reference.
+     *   Mode B/C always fall back to Proportions (with a warning) when their
+     *   inputs are missing or their geometry is unusable.
      * @param onStage called with 1..3 as the real pipeline advances, so the
      *   progress UI reflects work that actually happened.
      */
-    suspend fun analyze(bitmap: Bitmap, onStage: (Int) -> Unit = {}): Outcome = lock.withLock {
+    suspend fun analyze(
+        bitmap: Bitmap,
+        input: GeometryInput,
+        onStage: (Int) -> Unit = {},
+    ): Outcome = lock.withLock {
         withContext(Dispatchers.Default) {
             // ---- 1. Run the pose landmarker ------------------------------
             val poses = try {
@@ -189,12 +215,41 @@ class PoseAnalyzer(private val context: Context) {
 
             onStage(3) // "Work out the scale" is done
 
+            // ---- 5. Hand the mode decision to GeometryEngine ----------------
+            // The Mode A number is exactly what shipped before: the crown-based
+            // face-fit estimate when usable, the nose→feet proportions figure
+            // otherwise. GeometryEngine reuses it untouched for Mode A and for
+            // every B/C fallback, so the old path cannot regress.
             val pipelineUsable = estimate.ok && estimate.headPx != null && estimate.personPx != null
-            val heightCm = if (pipelineUsable) estimate.heightCm.toFloat() else proportionsHeightCm
-            val formula = if (pipelineUsable) estimate.formulaText else "proportions = nose_to_feet_px / head_length_px * 23 cm"
+            val modeAHeightCm = if (pipelineUsable) estimate.heightCm else proportionsHeightCm.toDouble()
+            val modeAFormula = if (pipelineUsable) {
+                estimate.formulaText
+            } else {
+                "proportions = nose_to_feet_px / head_length_px * 23 cm"
+            }
+            val modeA = GeometryEngine.ProportionsResult(
+                heightCm = modeAHeightCm,
+                errorMarginCm = report.adjustedErrorCm,
+                formulaText = modeAFormula,
+            )
+
+            val solution = engine.solve(
+                input = input,
+                pose = poseLandmarks,
+                qualityScore = report.breakdown.total,
+                modeA = modeA,
+                referenceCorners = if (input is GeometryInput.Reference) a4.detect(bitmap) else null,
+            )
+
+            Log.d(
+                "MeasureMe",
+                "engine ⇒ solved=${solution.solved} fallback=${solution.fallback} " +
+                    "H=${solution.heightCm} ±${solution.errorMarginCm} warning=${solution.warning}\n" +
+                    engine.diagnostics,
+            )
 
             Outcome.Success(
-                estimatedHeightCm = heightCm,
+                estimatedHeightCm = solution.heightCm.toFloat(),
                 pixelHeight = pixelHeight.roundToInt(),
                 headLengthPx = headLengthPx.roundToInt(),
                 nHeads = estimate.headsTall ?: nHeads.toDouble(),
@@ -202,8 +257,12 @@ class PoseAnalyzer(private val context: Context) {
                 headPx = (estimate.headPx ?: headLengthPx).roundToInt(),
                 qualityScore = report.breakdown.total,
                 qualityLabel = qualityLabel(report.breakdown.total),
-                errorMarginCm = report.adjustedErrorCm,
-                formulaText = formula,
+                errorMarginCm = solution.errorMarginCm,
+                formulaText = solution.formulaText,
+                solved = solution.solved,
+                fallback = solution.fallback,
+                warning = solution.warning,
+                cameraHeightCm = solution.cameraHeightCm,
             )
         }
     }

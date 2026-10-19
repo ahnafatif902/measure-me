@@ -72,11 +72,29 @@ class MainActivity : ComponentActivity() {
         intent ?: return
         val screen = intent.getStringExtra("debug_screen")
         val photo = intent.getStringExtra("debug_photo")
-        if (screen == null && photo == null) return
+        val mode = intent.getStringExtra("debug_mode")
+        val cameraHeight = intent.getFloatExtra("debug_camera_height", Float.NaN)
+        val pitch = intent.getFloatExtra("debug_pitch", Float.NaN)
+        val roll = intent.getFloatExtra("debug_roll", Float.NaN)
+        val focal = intent.getFloatExtra("debug_focal_px", Float.NaN)
+        if (screen == null && photo == null && mode == null &&
+            cameraHeight.isNaN() && pitch.isNaN() && focal.isNaN()
+        ) {
+            return
+        }
         // A phone sitting locked must still light up and show the app.
         if (Build.VERSION.SDK_INT >= 27) {
             setTurnScreenOn(true)
             setShowWhenLocked(true)
+        }
+        if (mode != null || !cameraHeight.isNaN() || !pitch.isNaN() || !roll.isNaN() || !focal.isNaN()) {
+            vm.debugConfig(
+                mode = mode,
+                cameraHeightCm = cameraHeight.takeUnless { it.isNaN() },
+                pitchDeg = pitch.takeUnless { it.isNaN() },
+                rollDeg = roll.takeUnless { it.isNaN() },
+                focalPx = focal.takeUnless { it.isNaN() },
+            )
         }
         if (screen != null) vm.debugJump(screen)
         if (photo != null) vm.debugPhoto(photo)
@@ -125,9 +143,11 @@ private fun AppRoot(vm: MeasureMeViewModel, state: MeasureMeViewModel.UiState) {
                 onPhotoPicked = vm::onPhotoPicked,
                 onSample = vm::useSamplePhoto,
                 onMeasure = vm::measure,
+                onSetCameraHeight = vm::setCameraHeight,
             )
 
             Screen.CAMERA -> CameraScreen(
+                mode = state.mode,
                 working = state.loading,
                 onPhotoPicked = vm::onPhotoPicked,
                 onPhotoCaptured = vm::onPhotoCaptured,

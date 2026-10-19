@@ -10,6 +10,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.measureme.app.capture.ImageCaptureModule
 import com.measureme.app.detect.PoseAnalyzer
+import com.measureme.app.detect.SensorReader
+import com.measureme.app.pipeline.GeometryEngine
+import com.measureme.app.pipeline.GeometryInput
+import com.measureme.app.pipeline.Intrinsics
+import com.measureme.app.pipeline.Tilt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,6 +76,8 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         val headsTall: Double,
         val personPx: Int,
         val headPx: Int,
+        /** Set when Mode B/C fell back to Proportions — cause-specific. */
+        val warning: String? = null,
     )
 
     data class UiState(
@@ -83,14 +90,36 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         val measure: MeasureState = MeasureState.Idle,
         /** Set when the photo itself could not be read. */
         val failReason: String? = null,
+        /** Height the phone is held at for Mode B, in cm (persisted). */
+        val cameraHeightCm: Float = 135f,
+        /** Profile hints — stored for a future anthropometric pass, math-inactive today. */
+        val sex: String? = null,
+        val age: Int? = null,
     )
 
     private val prefs = app.getSharedPreferences("measureme", Context.MODE_PRIVATE)
     private val capture = ImageCaptureModule(app)
     private val analyzer = PoseAnalyzer(app)
+    private val sensors = SensorReader(app)
     private var analyzeJob: Job? = null
 
-    private val _ui = MutableStateFlow(UiState(mode = loadMode()))
+    /** Shutter-time context for Modes B/C; refreshed by every photo intake. */
+    private var captureTilt: Tilt? = null
+    private var captureIntrinsics: Intrinsics? = null
+
+    /** Debug-only overrides (see debugConfig) — never set in normal use. */
+    private var debugPitchDeg: Float? = null
+    private var debugRollDeg: Float = 0f
+    private var debugFocalPx: Float? = null
+
+    private val _ui = MutableStateFlow(
+        UiState(
+            mode = loadMode(),
+            cameraHeightCm = loadCameraHeight(),
+            sex = prefs.getString(KEY_SEX, null),
+            age = prefs.getInt(KEY_AGE, 0).takeIf { it > 0 },
+        ),
+    )
     val ui: StateFlow<UiState> = _ui
 
     // ------------------------------------------------------------------
@@ -103,17 +132,40 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { if (isLoading) it else it.copy(mode = mode) }
     }
 
+    /** Camera height for Mode B — persisted like the mode, bounded to sane values. */
+    fun setCameraHeight(cm: Float) {
+        val bounded = cm.coerceIn(MIN_CAMERA_HEIGHT_CM, MAX_CAMERA_HEIGHT_CM)
+        prefs.edit().putFloat(KEY_CAMERA_HEIGHT, bounded).apply()
+        _ui.update { if (isLoading) it else it.copy(cameraHeightCm = bounded) }
+    }
+
+    /** Stored profile hints; not used by today's math (approved scope). */
+    fun setSex(sex: String?) {
+        prefs.edit().putString(KEY_SEX, sex).apply()
+        _ui.update { if (isLoading) it else it.copy(sex = sex) }
+    }
+
+    fun setAge(age: Int?) {
+        val bounded = age?.coerceIn(1, 120)
+        prefs.edit().putInt(KEY_AGE, bounded ?: 0).apply()
+        _ui.update { if (isLoading) it else it.copy(age = bounded) }
+    }
+
     fun continueToCapture() = _ui.update {
         if (isLoading) it else it.copy(screen = Screen.CAPTURE, failReason = null)
     }
 
     fun backToHome() = _ui.update { if (isLoading) it else it.copy(screen = Screen.HOME) }
 
-    fun goCamera() = _ui.update {
-        if (isLoading) it else it.copy(screen = Screen.CAMERA, failReason = null)
+    fun goCamera() {
+        sensors.start() // Mode B needs the tilt at the shutter
+        _ui.update { if (isLoading) it else it.copy(screen = Screen.CAMERA, failReason = null) }
     }
 
-    fun cameraBack() = _ui.update { if (isLoading) it else it.copy(screen = Screen.CAPTURE) }
+    fun cameraBack() {
+        sensors.stop()
+        _ui.update { if (isLoading) it else it.copy(screen = Screen.CAPTURE) }
+    }
 
     /** Result → Capture with the photo kept, ready for another run. */
     fun measureAgain() = _ui.update {
@@ -129,18 +181,35 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         Mode.valueOf(prefs.getString(KEY_MODE, Mode.PROPORTIONS.name)!!)
     }.getOrDefault(Mode.PROPORTIONS)
 
+    private fun loadCameraHeight(): Float =
+        prefs.getFloat(KEY_CAMERA_HEIGHT, DEFAULT_CAMERA_HEIGHT_CM)
+            .coerceIn(MIN_CAMERA_HEIGHT_CM, MAX_CAMERA_HEIGHT_CM)
+
     // ------------------------------------------------------------------
     // Photo intake (real)
     // ------------------------------------------------------------------
 
     fun onPhotoPicked(uri: Uri) {
-        viewModelScope.launch { load { capture.decodeUri(uri) } }
+        sensors.stop()
+        viewModelScope.launch {
+            load {
+                captureTilt = null // a gallery photo carries no live shutter tilt
+                capture.decodeUri(uri)
+            }
+        }
     }
 
     fun onPhotoCaptured(proxy: ImageProxy) {
+        // Snapshot gravity AT THE SHUTTER, before the JPEG decode takes time.
+        val shutterTilt = sensors.snapshot()
+        sensors.stop()
+        Log.d(TAG, "shutter: tilt=$shutterTilt")
         viewModelScope.launch {
             try {
-                load { capture.fromImageProxy(proxy) }
+                load {
+                    captureTilt = shutterTilt
+                    capture.fromImageProxy(proxy)
+                }
             } finally {
                 proxy.close()
             }
@@ -149,16 +218,29 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
 
     /** "Use a sample": the app's own bundled photo. */
     fun useSamplePhoto() {
-        viewModelScope.launch { load { capture.decodeSample() } }
+        sensors.stop()
+        viewModelScope.launch {
+            load {
+                captureTilt = null
+                capture.decodeSample()
+            }
+        }
     }
 
-    private suspend fun load(decode: () -> Bitmap) {
+    private suspend fun load(decode: () -> ImageCaptureModule.DecodedPhoto) {
         _ui.update { it.copy(loading = true, failReason = null) }
         try {
-            val bmp = withContext(Dispatchers.IO) { decode() }
+            val decoded = withContext(Dispatchers.IO) { decode() }
+
+            // Intrinsics for the ANALYZED bitmap: both f_px and width scale by
+            // the same downscale factor, so f_px = f35/36 · analyzedWidth.
+            captureIntrinsics = decoded.focalLength35mmMm?.let {
+                Intrinsics.fromExif35mm(it, decoded.bitmap.width, decoded.bitmap.height)
+            }
+
             _ui.update {
                 it.copy(
-                    photo = bmp, loading = false, measure = MeasureState.Idle,
+                    photo = decoded.bitmap, loading = false, measure = MeasureState.Idle,
                     screen = Screen.CAPTURE,
                 )
             }
@@ -196,6 +278,7 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun analyzeImage(bitmap: Bitmap) {
         if (analyzeJob?.isActive == true) return
+        val input = buildGeometryInput(bitmap)
         analyzeJob = viewModelScope.launch {
             _ui.update {
                 it.copy(
@@ -205,7 +288,7 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
 
-            val outcome = analyzer.analyze(bitmap) { step ->
+            val outcome = analyzer.analyze(bitmap, input) { step ->
                 _ui.update { s ->
                     if (s.measure is MeasureState.Loading) {
                         s.copy(measure = MeasureState.Loading(step))
@@ -230,16 +313,48 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Snapshot the mode + shutter-time context into a pure engine input. */
+    private fun buildGeometryInput(bitmap: Bitmap): GeometryInput {
+        val st = _ui.value
+        val tilt = debugPitchDeg?.let { Tilt(it.toDouble(), debugRollDeg.toDouble()) } ?: captureTilt
+        val intrinsics = debugFocalPx?.let {
+            Intrinsics.forced(it.toDouble(), bitmap.width, bitmap.height)
+        } ?: captureIntrinsics
+
+        return when (st.mode) {
+            Mode.PROPORTIONS -> GeometryInput.Proportions(sex = st.sex, age = st.age)
+            Mode.HORIZON -> GeometryInput.Horizon(
+                cameraHeightCm = st.cameraHeightCm.toDouble(),
+                tilt = tilt,
+                intrinsics = intrinsics,
+            )
+            Mode.REFERENCE -> GeometryInput.Reference(
+                gravityTilt = tilt,
+                intrinsics = intrinsics,
+            )
+        }
+    }
+
     /** Build the display result from a real measurement. */
-    private fun toResult(o: PoseAnalyzer.Outcome.Success) = Result(
-        heightCm = o.estimatedHeightCm.roundToInt(),
-        metadataString = "$MODEL_LABEL Model · Margin ±${o.errorMarginCm} cm",
-        quality = o.qualityScore,
-        qualityLabel = o.qualityLabel,
-        headsTall = o.nHeads,
-        personPx = o.personPx,
-        headPx = o.headPx,
-    )
+    private fun toResult(o: PoseAnalyzer.Outcome.Success): Result {
+        val label = when (o.solved) {
+            GeometryEngine.Solved.HORIZON ->
+                "Horizon Model" + (o.cameraHeightCm?.let { " · phone ${it.roundToInt()} cm" } ?: "")
+            GeometryEngine.Solved.REFERENCE ->
+                "Reference Model (A4)" + (o.cameraHeightCm?.let { " · camera ${it.roundToInt()} cm" } ?: "")
+            GeometryEngine.Solved.PROPORTIONS -> "Proportions Model"
+        }
+        return Result(
+            heightCm = o.estimatedHeightCm.roundToInt(),
+            metadataString = "$label · Margin ±${o.errorMarginCm} cm",
+            quality = o.qualityScore,
+            qualityLabel = o.qualityLabel,
+            headsTall = o.nHeads,
+            personPx = o.personPx,
+            headPx = o.headPx,
+            warning = o.warning,
+        )
+    }
 
     // ------------------------------------------------------------------
     // DEBUG-ONLY entry points for automated on-device verification:
@@ -254,6 +369,7 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         when (target.lowercase()) {
             "home" -> _ui.update { it.copy(screen = Screen.HOME) }
             "capture" -> _ui.update { it.copy(screen = Screen.CAPTURE) }
+            "camera" -> goCamera()
             "result" -> {
                 val photo = _ui.value.photo
                 if (photo != null) {
@@ -274,18 +390,61 @@ class MeasureMeViewModel(app: Application) : AndroidViewModel(app) {
         Log.d(TAG, "debugPhoto: $path")
         viewModelScope.launch {
             load {
-                if (path == "sample") capture.decodeSample() else capture.decodeFile(java.io.File(path))
+                if (path == "sample") {
+                    capture.decodeSample()
+                } else {
+                    captureTilt = null
+                    capture.decodeFile(java.io.File(path))
+                }
             }
             _ui.value.photo?.let { analyzeImage(it) }
         }
     }
 
+    /**
+     * DEBUG-ONLY: force the Mode B/C inputs so the math can be exercised on
+     * a device with an EXIF-free test photo:
+     *
+     *   --es debug_mode horizon --ef debug_camera_height 135 \
+     *   --ef debug_pitch 10 --ef debug_roll 0 --ef debug_focal_px 3200
+     */
+    fun debugConfig(
+        mode: String?,
+        cameraHeightCm: Float?,
+        pitchDeg: Float?,
+        rollDeg: Float?,
+        focalPx: Float?,
+    ) {
+        mode?.let { raw ->
+            runCatching { Mode.valueOf(raw.uppercase()) }.getOrNull()?.let(::selectMode)
+        }
+        cameraHeightCm?.let(::setCameraHeight)
+        debugPitchDeg = pitchDeg
+        if (rollDeg != null) debugRollDeg = rollDeg
+        debugFocalPx = focalPx
+        Log.d(
+            TAG,
+            "debugConfig: mode=$mode h=$cameraHeightCm pitch=$pitchDeg roll=$rollDeg f=$focalPx",
+        )
+    }
+
+    override fun onCleared() {
+        sensors.stop()
+        analyzer.close()
+        super.onCleared()
+    }
+
     companion object {
         private const val KEY_MODE = "mode"
+        private const val KEY_CAMERA_HEIGHT = "cameraHeightCm"
+        private const val KEY_SEX = "sex"
+        private const val KEY_AGE = "age"
         private const val TAG = "MeasureMe"
 
-        /** The model that actually runs: Mode A, proportions from one photo. */
-        private const val MODEL_LABEL = "Proportions"
+        /** Mode B defaults: hand-held at chest height, the brief's middle preset. */
+        const val DEFAULT_CAMERA_HEIGHT_CM = 135f
+        const val MIN_CAMERA_HEIGHT_CM = 60f
+        const val MAX_CAMERA_HEIGHT_CM = 220f
 
         private const val NO_PERSON_MESSAGE =
             "No person identified. Please ensure your full body is in the frame."

@@ -36,6 +36,7 @@ import com.measureme.app.ui.components.MmProgressBar
 import com.measureme.app.ui.components.PrivacyLine
 import com.measureme.app.ui.components.StatTile
 import com.measureme.app.ui.components.rememberReducedMotion
+import com.measureme.app.ui.theme.Mm
 import com.measureme.app.ui.theme.MmType
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -243,6 +244,7 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
                     // Accessibility: the result is exposed as one text value.
                     contentDescription = "Estimated height ${result.heightCm} centimetres, " +
                         "${cmToFtIn(result.heightCm.toFloat())}. ${result.metadataString}. " +
+                        (result.warning?.let { "$it " } ?: "") +
                         "Photo quality ${result.quality} out of 100."
                 },
         ) {
@@ -270,6 +272,16 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
                 style = MmType.resultLine,
                 modifier = Modifier.alpha(lineAlpha.value),
             )
+
+            // Mode B/C fallback: say exactly why Proportions stood in. Never silent.
+            result.warning?.let { warning ->
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = warning,
+                    style = MmType.body2.copy(color = Mm.Accent),
+                    modifier = Modifier.alpha(lineAlpha.value),
+                )
+            }
 
             Spacer(Modifier.height(20.dp))
 
