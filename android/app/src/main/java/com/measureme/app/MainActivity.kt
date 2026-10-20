@@ -6,21 +6,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import com.measureme.app.MeasureMeViewModel.Screen
 import com.measureme.app.ui.components.rememberReducedMotion
 import com.measureme.app.ui.screens.CameraScreen
@@ -32,8 +36,8 @@ import com.measureme.app.ui.theme.Mm
 
 /**
  * Single activity. The ViewModel's state machine is the navigation
- * (Home → Capture → Processing → Result); screens switch with the spec's
- * 220 ms fade and 12 px shift, snapping under reduced motion.
+ * (Home → Capture → Camera → Processing → Result); screens switch with
+ * premium spring transitions.
  */
 class MainActivity : ComponentActivity() {
 
@@ -45,24 +49,25 @@ class MainActivity : ComponentActivity() {
         // DEBUG-ONLY automated test hook (see handleDebugIntent below).
         if (BuildConfig.DEBUG) handleDebugIntent(intent)
 
+        // Edge-to-edge: content draws behind system bars; screens apply their
+        // own insets padding. Transparent status bar lets the paper background
+        // bleed to the top on light screens.
+        enableEdgeToEdge()
+        window.setStatusBarColor(android.graphics.Color.TRANSPARENT)
+        window.setNavigationBarColor(android.graphics.Color.TRANSPARENT)
+
         setContent {
             MeasureMeTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = Mm.Paper) {
-                    val state by vm.ui.collectAsState()
-                    AppRoot(vm, state)
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = Mm.Paper) {
+                        val state by vm.ui.collectAsState()
+                        AppRoot(vm, state)
+                    }
                 }
             }
         }
     }
 
-    /**
-     * DEBUG-ONLY: a launch or re-launch with extras drives the app without
-     * touch input (used to verify screens on a device over adb):
-     *
-     *   adb shell am start -n com.measureme.app/.MainActivity --es debug_screen result
-     *   adb shell am start -n com.measureme.app/.MainActivity \
-     *       --es debug_photo /sdcard/Android/data/com.measureme.app/files/test.jpg
-     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (BuildConfig.DEBUG) handleDebugIntent(intent)
@@ -78,7 +83,7 @@ class MainActivity : ComponentActivity() {
         val roll = intent.getFloatExtra("debug_roll", Float.NaN)
         val focal = intent.getFloatExtra("debug_focal_px", Float.NaN)
         if (screen == null && photo == null && mode == null &&
-            cameraHeight.isNaN() && pitch.isNaN() && focal.isNaN()
+            cameraHeight.isNaN() && pitch.isNaN() && roll.isNaN() && focal.isNaN()
         ) {
             return
         }
@@ -104,7 +109,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AppRoot(vm: MeasureMeViewModel, state: MeasureMeViewModel.UiState) {
     val reduced = rememberReducedMotion()
-    val shift = with(LocalDensity.current) { 12.dp.roundToPx() }
 
     // System back: Camera → Capture, Capture → Home, Result → Capture.
     // While the engine is running, back does nothing (the work is real).
@@ -117,14 +121,16 @@ private fun AppRoot(vm: MeasureMeViewModel, state: MeasureMeViewModel.UiState) {
         }
     }
 
+    val fluid = spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow)
+
     AnimatedContent(
         targetState = state.screen,
         transitionSpec = {
             if (reduced) {
-                fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+                fadeIn(animationSpec = tween(0)) togetherWith fadeOut(animationSpec = tween(0))
             } else {
-                (fadeIn(tween(220)) + slideInVertically(tween(220)) { shift }) togetherWith
-                    fadeOut(tween(220))
+                (fadeIn(animationSpec = fluid) + slideInVertically(animationSpec = tween(220))) togetherWith
+                    fadeOut(animationSpec = tween(220))
             }
         },
         label = "screen",
@@ -134,6 +140,8 @@ private fun AppRoot(vm: MeasureMeViewModel, state: MeasureMeViewModel.UiState) {
                 mode = state.mode,
                 onSelectMode = vm::selectMode,
                 onContinue = vm::continueToCapture,
+                onSetSex = vm::setSex,
+                onSetAge = vm::setAge,
             )
 
             Screen.CAPTURE -> CaptureScreen(
@@ -148,6 +156,7 @@ private fun AppRoot(vm: MeasureMeViewModel, state: MeasureMeViewModel.UiState) {
 
             Screen.CAMERA -> CameraScreen(
                 mode = state.mode,
+                cameraHeightCm = state.cameraHeightCm,
                 working = state.loading,
                 onPhotoPicked = vm::onPhotoPicked,
                 onPhotoCaptured = vm::onPhotoCaptured,

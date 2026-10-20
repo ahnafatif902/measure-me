@@ -1,5 +1,7 @@
 package com.measureme.app.ui.theme
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -11,6 +13,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -46,6 +49,37 @@ object Mm {
     const val DisabledAlpha = 0.40f
 }
 
+/** Spacing rhythm — every padding, margin, gap is a multiple of 8 dp (premium rule). */
+object MmSpace {
+    val XS = 8.dp
+    val SM = 16.dp
+    val MD = 24.dp
+    val LG = 32.dp
+    val XL = 48.dp
+}
+
+/** Elevation tokens — wide, low-opacity ambient shadows (spec §4). */
+object MmElevation {
+    val Card = 16.dp   // cards, viewfinder
+    val Sheet = 24.dp  // floating sheets
+    val ButtonAccent = 4.dp
+}
+
+/** Glass surface tokens — alpha compositing over the live preview, no Haze (API 24+). */
+object MmGlass {
+    val Fill = Mm.Surface.copy(alpha = 0.88f)
+    val Border = Color.White.copy(alpha = 0.30f)
+    val Highlight = Color.White.copy(alpha = 0.55f)
+}
+
+/** Motion springs — spec §8 press springs + premium rule fluid motion for count-ups
+ *  and screen transitions. */
+object MmMotion {
+    val Press = spring<Float>(stiffness = 500f, dampingRatio = 0.67f)
+    val Progress = spring<Float>(stiffness = 140f, dampingRatio = 0.93f)
+    val Fluid = spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow)
+}
+
 /** Radii from the spec: viewfinder 28, card and mode card 24, button and tile 16. */
 object MmShapes {
     val Viewfinder: Shape = RoundedCornerShape(28.dp)
@@ -53,6 +87,10 @@ object MmShapes {
     val Button: Shape = RoundedCornerShape(16.dp)
     val Tile: Shape = RoundedCornerShape(16.dp)
     val Progress: Shape = RoundedCornerShape(percent = 50)
+    /** Floating sheets — top corners rounded, bottom square to meet the nav bar. */
+    val Sheet: Shape = RoundedCornerShape(
+        topStart = 24.dp, topEnd = 24.dp, bottomStart = 0.dp, bottomEnd = 0.dp,
+    )
 }
 
 /*
@@ -115,10 +153,22 @@ object MmType {
         fontWeight = FontWeight.Medium, color = Mm.Ink2,
     )
 
-    /** Buttons — Inter 15, weight 500, tracking -0.005em. */
+    /** Segment label — Inter 13 / 18. */
+    val segment = TextStyle(
+        fontFamily = Inter, fontSize = 13.sp, lineHeight = 18.sp,
+        fontWeight = FontWeight.Medium, color = Mm.Ink2,
+    )
+
+    /** Selected segment label — Inter 13 / 18, SemiBold. */
+    val segmentSelected = TextStyle(
+        fontFamily = Inter, fontSize = 13.sp, lineHeight = 18.sp,
+        fontWeight = FontWeight.SemiBold, color = Mm.Ink,
+    )
+
+    /** Buttons — Inter 15, weight 600 (SemiBold), tracking -0.005em. */
     val button = TextStyle(
         fontFamily = Inter, fontSize = 15.sp, lineHeight = 20.sp,
-        fontWeight = FontWeight.Medium, letterSpacing = (-0.005).em,
+        fontWeight = FontWeight.SemiBold, letterSpacing = (-0.005).em,
     )
 
     /** Unit beside the result number — small, Inter. */

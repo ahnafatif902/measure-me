@@ -24,6 +24,18 @@ product documents (`docs/`).
 
 ---
 
+## App Screenshots
+
+### App Preview
+
+| Home | Camera | Result |
+| :---: | :---: | :---: |
+| ![Home](docs/shots/10-home-premium.png) | ![Camera](docs/shots/11-camera-clean.png) | ![Result](docs/shots/12-result-premium.png) |
+
+The premium UI overhaul: a full-bleed camera preview with zero drawn overlays, a floating glass bottom sheet with exact spec §7 copy, a contextual segmented control replacing the mode cards, and a floating result card with a spring count-up and explicit error range.
+
+---
+
 ## 1 · Quick start
 
 Any static server works:

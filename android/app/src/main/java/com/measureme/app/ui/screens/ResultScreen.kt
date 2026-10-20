@@ -1,9 +1,9 @@
 package com.measureme.app.ui.screens
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,7 +37,9 @@ import com.measureme.app.ui.components.PrivacyLine
 import com.measureme.app.ui.components.StatTile
 import com.measureme.app.ui.components.rememberReducedMotion
 import com.measureme.app.ui.theme.Mm
+import com.measureme.app.ui.theme.MmSpace
 import com.measureme.app.ui.theme.MmType
+import com.measureme.app.ui.theme.MmMotion
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -47,15 +49,13 @@ import kotlin.math.roundToInt
  *  - Loading: the processing animation (progress bar + the three real steps).
  *  - Error:   a warning card with the specific reason and a "Try again" way
  *             out, instead of a number we cannot stand behind.
- *  - Success: one surface — label, the counting number with a small unit,
- *             the exact imperial conversion plus the run metadata on the
- *             same line, the quality bar and caveat, two stat tiles, one
- *             line about heads tall.
+ *  - Success: a floating surface card — label, the counting number with a
+ *             small unit, the imperial conversion plus metadata below it,
+ *             the quality bar and caveat, two stat tiles, one line about
+ *             heads tall.
  *
- * The card enters with a 220 ms fade and a 12 px rise; the number counts
- * 0 → value over 1.2 s (ease-out) and the metadata line states the settled
- * estimate, fading in once the count-up finishes. Reduced motion shows the
- * final values instantly.
+ * The card enters with a spring fade + 12 dp rise; the number counts up
+ * with [MmMotion.Fluid]; reduced motion shows final values instantly.
  */
 @Composable
 fun ResultScreen(
@@ -77,12 +77,12 @@ private fun IdleView() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = MmSpace.MD),
     ) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(MmSpace.MD))
         MmCard(modifier = Modifier.fillMaxWidth()) {
             Text("Nothing measured yet", style = MmType.label)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(MmSpace.XS))
             Text(
                 "Take a photo and Measure my height to see your estimate.",
                 style = MmType.body2,
@@ -99,7 +99,7 @@ private fun LoadingView(step: Int) {
     val appear = remember { Animatable(if (reduced) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!reduced) {
-            appear.animateTo(1f, tween(220, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)))
+            appear.animateTo(1f, spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow))
         }
     }
 
@@ -107,9 +107,9 @@ private fun LoadingView(step: Int) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = MmSpace.MD),
     ) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(MmSpace.MD))
 
         MmCard(
             modifier = Modifier
@@ -120,20 +120,18 @@ private fun LoadingView(step: Int) {
                 },
         ) {
             Text("Working on it", style = MmType.label)
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(MmSpace.SM))
             ProcessingScreen(step = step)
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(MmSpace.MD))
         PrivacyLine()
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(MmSpace.LG))
     }
 }
 
-/**
- * The photo could not be measured. One specific, fixable reason and a way
- * out — never a number we cannot stand behind.
- */
+/** The photo could not be measured. One specific, fixable reason and a way
+ * out — never a number we cannot stand behind. */
 @Composable
 private fun ErrorView(message: String, onTryAgain: () -> Unit) {
     val reduced = rememberReducedMotion()
@@ -141,7 +139,7 @@ private fun ErrorView(message: String, onTryAgain: () -> Unit) {
     val appear = remember { Animatable(if (reduced) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!reduced) {
-            appear.animateTo(1f, tween(220, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)))
+            appear.animateTo(1f, spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow))
         }
     }
 
@@ -149,9 +147,9 @@ private fun ErrorView(message: String, onTryAgain: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = MmSpace.MD),
     ) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(MmSpace.MD))
 
         MmCard(
             modifier = Modifier
@@ -162,9 +160,9 @@ private fun ErrorView(message: String, onTryAgain: () -> Unit) {
                 },
         ) {
             Text("Couldn't measure that", style = MmType.label)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(MmSpace.SM))
             FailureBanner(reason = message)
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(MmSpace.SM))
             Text(
                 "A full-body shot with your face, head and feet in frame gives the " +
                     "best result. Keep the phone level and step back until you fit.",
@@ -172,7 +170,7 @@ private fun ErrorView(message: String, onTryAgain: () -> Unit) {
             )
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(MmSpace.SM))
 
         MmPrimaryButton(
             label = "Try again",
@@ -180,11 +178,9 @@ private fun ErrorView(message: String, onTryAgain: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(Modifier.height(16.dp))
-
+        Spacer(Modifier.height(MmSpace.SM))
         PrivacyLine()
-
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(MmSpace.LG))
     }
 }
 
@@ -193,15 +189,15 @@ private fun ErrorView(message: String, onTryAgain: () -> Unit) {
 private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () -> Unit) {
     val reduced = rememberReducedMotion()
 
-    // Card arrival: 220 ms fade with a 12 px rise.
+    // Card arrival: spring fade with a 12 dp rise.
     val appear = remember { Animatable(if (reduced) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!reduced) {
-            appear.animateTo(1f, tween(220, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)))
+            appear.animateTo(1f, spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow))
         }
     }
 
-    // Count-up: 0 → result over 1.2 s.
+    // Count-up: 0 → result with MmMotion.Fluid spring.
     val count = remember { Animatable(0f) }
     val countDone = remember { mutableStateOf(reduced) }
     LaunchedEffect(result.heightCm) {
@@ -210,18 +206,17 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
         } else {
             count.animateTo(
                 result.heightCm.toFloat(),
-                tween(1200, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)),
+                spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow),
             )
         }
         countDone.value = true
     }
 
-    // The imperial + metadata line states the *settled* estimate, never the
-    // animating value, so it can't disagree with the number on screen — it
-    // just fades in once the count-up has finished.
+    // The imperial + metadata line states the *settled* estimate — fades in
+    // once the count-up has finished so it can't disagree with the number.
     val lineAlpha = animateFloatAsState(
         targetValue = if (countDone.value) 1f else 0f,
-        animationSpec = tween(220),
+        animationSpec = spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow),
         label = "resultLineAlpha",
     )
 
@@ -229,19 +224,20 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = MmSpace.MD),
     ) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(MmSpace.SM))
 
+        // Floating result card: 24 dp margins, ambient shadow, hairline.
         MmCard(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = MmSpace.MD)
                 .graphicsLayer {
                     alpha = appear.value
                     translationY = (1f - appear.value) * 12.dp.toPx()
                 }
                 .clearAndSetSemantics {
-                    // Accessibility: the result is exposed as one text value.
                     contentDescription = "Estimated height ${result.heightCm} centimetres, " +
                         "${cmToFtIn(result.heightCm.toFloat())}. ${result.metadataString}. " +
                         (result.warning?.let { "$it " } ?: "") +
@@ -250,7 +246,7 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
         ) {
             Text("You're about", style = MmType.label)
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(MmSpace.XS))
 
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
@@ -265,7 +261,7 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
                 )
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(MmSpace.XS))
 
             Text(
                 text = "${cmToFtIn(result.heightCm.toFloat())} · ${result.metadataString}",
@@ -275,7 +271,7 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
 
             // Mode B/C fallback: say exactly why Proportions stood in. Never silent.
             result.warning?.let { warning ->
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(MmSpace.XS))
                 Text(
                     text = warning,
                     style = MmType.body2.copy(color = Mm.Accent),
@@ -283,7 +279,7 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(MmSpace.MD))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -297,18 +293,18 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(MmSpace.XS))
 
             MmProgressBar(progress = result.quality / 100f)
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(MmSpace.MD))
 
             Text(
                 "This rates the photo, not the answer. Even a clean photo can be off by several centimetres.",
                 style = MmType.body2,
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(MmSpace.MD))
 
             Row(Modifier.fillMaxWidth()) {
                 StatTile(
@@ -316,7 +312,7 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
                     value = String.format(Locale.US, "%,d px", result.personPx),
                     modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(MmSpace.SM))
                 StatTile(
                     label = "Head height",
                     value = "${result.headPx} px",
@@ -324,7 +320,7 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(MmSpace.SM))
 
             Text(
                 "You measure ${result.headsTall} heads tall. Classical art uses 7.5.",
@@ -332,7 +328,7 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
             )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(MmSpace.LG))
 
         MmPrimaryButton(
             label = "Measure again",
@@ -340,10 +336,10 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(MmSpace.SM))
 
         PrivacyLine()
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(MmSpace.LG))
     }
 }

@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import com.measureme.app.ui.icons.MmIcons
 import com.measureme.app.ui.theme.Mm
 import com.measureme.app.ui.theme.MmShapes
+import com.measureme.app.ui.theme.MmSpace
 import com.measureme.app.ui.theme.MmType
 
 /*
@@ -336,7 +337,7 @@ fun MmCard(
     Column(
         modifier = modifier
             .mmCardDecoration()
-            .padding(20.dp),
+            .padding(MmSpace.MD),
         content = content,
     )
 }
@@ -361,103 +362,12 @@ fun MmTopBar(
                 contentDescription = "Back",
                 onClick = onBack,
             )
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(MmSpace.SM))
         } else if (leadingIcon != null) {
             Icon(leadingIcon, contentDescription = null, tint = Mm.Ink, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(MmSpace.XS))
         }
         Text(title, style = MmType.wordmark)
-    }
-}
-
-/** Mode card: radio semantics, icon, title, one-line note, check circle (spec §5). */
-@Composable
-fun ModeCard(
-    title: String,
-    note: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val reduced = rememberReducedMotion()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.98f else 1f,
-        animationSpec = if (reduced) snap() else PressSpring,
-        label = "modePress",
-    )
-    val haptics = LocalHapticFeedback.current
-    LaunchedEffect(pressed) {
-        if (pressed) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-    }
-    var focused by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .onFocusChanged { focused = it.isFocused }
-            .mmFocusRing(focused, 24.dp)
-            .clip(MmShapes.Card)
-            .background(Mm.Surface)
-            .then(
-                if (selected) Modifier.border(2.dp, Mm.Accent, MmShapes.Card)
-                else Modifier.border(1.dp, Mm.Line, MmShapes.Card),
-            )
-            .mmTopHighlight(24.dp)
-            .selectable(
-                selected = selected,
-                interactionSource = interaction,
-                indication = null,
-                role = Role.RadioButton,
-                onClick = onClick,
-            )
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = if (selected) Mm.Accent else Mm.Ink2,
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MmType.wordmark)
-            Spacer(Modifier.height(2.dp))
-            Text(note, style = MmType.body2)
-        }
-        Spacer(Modifier.width(12.dp))
-        CheckCircle(selected)
-    }
-}
-
-/** Filled accent check when selected; hairline outline when not (never colour alone). */
-@Composable
-private fun CheckCircle(checked: Boolean) {
-    Canvas(Modifier.size(24.dp)) {
-        val w = size.width
-        if (checked) {
-            drawCircle(color = Mm.Accent, radius = size.minDimension / 2f)
-            val check = Path().apply {
-                moveTo(w * 0.28f, w * 0.52f)
-                lineTo(w * 0.44f, w * 0.68f)
-                lineTo(w * 0.73f, w * 0.33f)
-            }
-            drawPath(
-                check,
-                color = Mm.OnAccent,
-                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-            )
-        } else {
-            drawCircle(
-                color = Mm.LineStrong,
-                radius = size.minDimension / 2f - 1.dp.toPx(),
-                style = Stroke(width = 1.5.dp.toPx()),
-            )
-        }
     }
 }
 
@@ -580,7 +490,7 @@ fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
         modifier
             .mmInset(corner = 16.dp)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(MmSpace.MD),
     ) {
         Text(label, style = MmType.label)
         Spacer(Modifier.height(4.dp))
