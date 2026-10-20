@@ -30,7 +30,7 @@ product documents (`docs/`).
 
 | Home | Camera | Result |
 | :---: | :---: | :---: |
-| ![Home](docs/shots/10-home-premium.png) | ![Camera](docs/shots/11-camera-clean.png) | ![Result](docs/shots/12-result-premium.png) |
+| ![Home](docs/shots/01-home.png) | ![Camera](docs/shots/02-camera.png) | ![Result](docs/shots/03-result.png) |
 
 The premium UI overhaul: a full-bleed camera preview with zero drawn overlays, a floating glass bottom sheet with exact spec §7 copy, a contextual segmented control replacing the mode cards, and a floating result card with a spring count-up and explicit error range.
 
@@ -242,7 +242,7 @@ js/overlay.js         canvas drawing: markers, dimension line, pins, loupe
 js/manual.js          3-tap manual mode: pointer input, drag, loupe
 js/ui.js              the only DOM writer; phase matrix, result/error cards
 js/app.js             orchestration, settings, testing hook
-docs/shots/           screenshots of every state (01–09)
+docs/shots/           screenshots of the three main screens (01–03)
 .test/                agent-browser batch scripts + test photos (dev only)
 android/              separate native Kotlin/Compose implementation of the
                       same pipeline — not covered by this README
@@ -262,7 +262,4 @@ android/              separate native Kotlin/Compose implementation of the
   sliders, failures) plus test photos from Wikimedia Commons and the
   MediaPipe demo assets — **dev-only, not shipped assets**; check each
   license before reusing.
-- `docs/shots/` — one screenshot per state:
-  `01-empty · 02-result · 03-manual-warning · 04-manual-pins ·
-  05-manual-result · 06-calculation-expanded · 07-error ·
-  08-light-result · 09-result-overlay`.
+- `docs/shots/` — three screenshots of the main screens: `01-home`, `02-camera`, `03-result`.
