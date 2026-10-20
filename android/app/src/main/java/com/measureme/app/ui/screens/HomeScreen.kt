@@ -2,7 +2,6 @@ package com.measureme.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -27,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
@@ -35,7 +34,7 @@ import com.measureme.app.MeasureMeViewModel
 import com.measureme.app.MeasureMeViewModel.Mode
 import com.measureme.app.ui.components.MmChip
 import com.measureme.app.ui.components.MmPrimaryButton
-import com.measureme.app.ui.components.MmSegmentedControl
+import com.measureme.app.ui.components.ModeCard
 import com.measureme.app.ui.components.MmTopBar
 import com.measureme.app.ui.components.PrivacyLine
 import com.measureme.app.ui.icons.MmIcons
@@ -44,9 +43,9 @@ import com.measureme.app.ui.theme.MmSpace
 import com.measureme.app.ui.theme.MmType
 
 /**
- * Home (UI Spec §6.1): ruler icon + wordmark, the headline, a contextual
- * segmented control replacing the mode cards, a one-line mode context note,
- * optional Sex/Age details, Continue, then the privacy line.
+ * Home (UI Spec §6.1): ruler icon + wordmark, the headline, a supporting
+ * sentence, three premium mode cards in a radio group, optional Sex/Age
+ * details, Continue, then the privacy line.
  * Headline and support sentence are the spec's exact copy (§7).
  *
  * All spacing follows the 8 pt grid.
@@ -82,50 +81,38 @@ fun HomeScreen(
 
         Text(
             "Stand tall, take one photo, and get an estimate in seconds. No tape needed.",
-            style = MmType.body.copy(color = Mm.Ink2),
+            style = MmType.subtitle,
             modifier = Modifier.widthIn(max = 300.dp),
         )
 
         Spacer(Modifier.height(MmSpace.LG))
 
-        // ---- contextual segmented control ----------------------------------
-        MmSegmentedControl(
-            options = listOf(Mode.PROPORTIONS, Mode.HORIZON, Mode.REFERENCE),
-            selected = mode,
-            onSelect = onSelectMode,
-            labelFor = { it.label },
+        // ---- mode cards (radio group) --------------------------------------
+        ModeCard(
+            title = "Proportions",
+            note = modeNote(Mode.PROPORTIONS),
+            icon = MmIcons.Person,
+            selected = mode == Mode.PROPORTIONS,
+            onClick = { onSelectMode(Mode.PROPORTIONS) },
+        )
+        Spacer(Modifier.height(MmSpace.SM))
+        ModeCard(
+            title = "Horizon",
+            note = modeNote(Mode.HORIZON),
+            icon = MmIcons.PhoneTilt,
+            selected = mode == Mode.HORIZON,
+            onClick = { onSelectMode(Mode.HORIZON) },
+        )
+        Spacer(Modifier.height(MmSpace.SM))
+        ModeCard(
+            title = "Reference",
+            note = modeNote(Mode.REFERENCE),
+            icon = MmIcons.Page,
+            selected = mode == Mode.REFERENCE,
+            onClick = { onSelectMode(Mode.REFERENCE) },
         )
 
-        Spacer(Modifier.height(MmSpace.SM))
-
-        // mode context: what this mode needs and how accurate it typically is
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            when (mode) {
-                Mode.PROPORTIONS -> Icon(
-                    MmIcons.Person, contentDescription = null,
-                    tint = Mm.Ink2, modifier = Modifier.size(20.dp),
-                )
-                Mode.HORIZON -> Icon(
-                    MmIcons.PhoneTilt, contentDescription = null,
-                    tint = Mm.Ink2, modifier = Modifier.size(20.dp),
-                )
-                Mode.REFERENCE -> Icon(
-                    MmIcons.Page, contentDescription = null,
-                    tint = Mm.Ink2, modifier = Modifier.size(20.dp),
-                )
-            }
-            Spacer(Modifier.width(MmSpace.XS))
-            Text(
-                text = modeNote(mode),
-                style = MmType.body2,
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        Spacer(Modifier.height(MmSpace.MD))
+        Spacer(Modifier.height(MmSpace.LG))
 
         // ---- optional Sex / Age details -----------------------------------
         Row(

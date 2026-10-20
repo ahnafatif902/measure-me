@@ -70,6 +70,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.measureme.app.ui.icons.MmIcons
 import com.measureme.app.ui.theme.Mm
+import com.measureme.app.ui.theme.MmElevation
+import com.measureme.app.ui.theme.MmMotion
 import com.measureme.app.ui.theme.MmShapes
 import com.measureme.app.ui.theme.MmSpace
 import com.measureme.app.ui.theme.MmType
@@ -321,6 +323,98 @@ fun MmIconButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = contentDescription, tint = Mm.Ink, modifier = Modifier.size(18.dp))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mode card — premium selectable card for Home screen mode selection
+// ---------------------------------------------------------------------------
+
+/** Premium mode card: surface fill, hairline border, ambient shadow, 24 dp radius,
+ *  16 dp internal padding. Selected state gets a 2 dp accent ring + filled check.
+ *  Selection animates with [MmMotion.Fluid]. */
+@Composable
+fun ModeCard(
+    title: String,
+    note: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val reduced = rememberReducedMotion()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        animationSpec = if (reduced) snap() else MmMotion.Press,
+        label = "modePress",
+    )
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(pressed) {
+        if (pressed) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+            .clip(MmShapes.Card)
+            .background(Mm.Surface)
+            .border(
+                if (selected) 2.dp else 1.dp,
+                if (selected) Mm.Accent else Mm.Line,
+                MmShapes.Card,
+            )
+            .shadow(
+                MmElevation.Card, MmShapes.Card,
+                ambientColor = Mm.Shadow.copy(alpha = 0.10f),
+                spotColor = Mm.Shadow.copy(alpha = 0.10f),
+            )
+            .padding(MmSpace.MD),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (selected) Mm.Accent else Mm.Ink2,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(MmSpace.SM))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MmType.wordmark)
+            Spacer(Modifier.height(2.dp))
+            Text(note, style = MmType.subtitle)
+        }
+        Spacer(Modifier.width(MmSpace.SM))
+        if (selected) {
+            CheckCircle(checked = true)
+        }
+    }
+}
+
+/** Filled accent check when selected (never colour alone — paired with ring). */
+@Composable
+private fun CheckCircle(checked: Boolean) {
+    if (!checked) return
+    Canvas(Modifier.size(24.dp)) {
+        val w = size.width
+        drawCircle(color = Mm.Accent, radius = size.minDimension / 2f)
+        val check = Path().apply {
+            moveTo(w * 0.28f, w * 0.52f)
+            lineTo(w * 0.44f, w * 0.68f)
+            lineTo(w * 0.73f, w * 0.33f)
+        }
+        drawPath(
+            check,
+            color = Mm.OnAccent,
+            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+        )
     }
 }
 

@@ -137,6 +137,12 @@ object MmType {
         fontFamily = Inter, fontSize = 15.sp, lineHeight = 22.sp, color = Mm.Ink,
     )
 
+    /** Subtitle (supporting sentence) — Inter 15 / 22, weight Light (falls back to Normal), ink-2. */
+    val subtitle = TextStyle(
+        fontFamily = Inter, fontSize = 15.sp, lineHeight = 22.sp,
+        fontWeight = FontWeight.Normal, color = Mm.Ink2,
+    )
+
     /** Secondary body — Inter 14 / 20, weight 400. */
     val body2 = TextStyle(
         fontFamily = Inter, fontSize = 14.sp, lineHeight = 20.sp, color = Mm.Ink2,
