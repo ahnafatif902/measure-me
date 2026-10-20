@@ -80,10 +80,11 @@ object MmIcons {
         "M14.5 2.5V7h4",
     )
 
-    /** Back arrow for navigation. */
+    /** Back arrow for navigation (lucide arrow-left). */
     val ArrowBack = icon(
         "ArrowBack",
-        "M19 4H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8l-6-6zm-4 10l-4 4-4-4",
+        "M19 12H5",
+        "m12 19-7-7 7-7",
     )
 
     private fun icon(name: String, vararg paths: String): ImageVector =

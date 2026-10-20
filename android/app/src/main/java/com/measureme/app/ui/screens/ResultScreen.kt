@@ -4,14 +4,21 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -29,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.measureme.app.MeasureMeViewModel
 import com.measureme.app.cmToFtIn
-import com.measureme.app.ui.components.FailureBanner
 import com.measureme.app.ui.components.MmCard
 import com.measureme.app.ui.components.MmPrimaryButton
 import com.measureme.app.ui.components.MmProgressBar
@@ -37,9 +43,9 @@ import com.measureme.app.ui.components.PrivacyLine
 import com.measureme.app.ui.components.StatTile
 import com.measureme.app.ui.components.rememberReducedMotion
 import com.measureme.app.ui.theme.Mm
+import com.measureme.app.ui.theme.MmMotion
 import com.measureme.app.ui.theme.MmSpace
 import com.measureme.app.ui.theme.MmType
-import com.measureme.app.ui.theme.MmMotion
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -61,24 +67,59 @@ import kotlin.math.roundToInt
 fun ResultScreen(
     state: MeasureMeViewModel.MeasureState,
     onMeasureAgain: () -> Unit,
-    onTryAgain: () -> Unit,
+    onRetake: () -> Unit,
+    onPick: () -> Unit,
 ) {
     when (state) {
         is MeasureMeViewModel.MeasureState.Idle -> IdleView()
         is MeasureMeViewModel.MeasureState.Loading -> LoadingView(state.step)
-        is MeasureMeViewModel.MeasureState.Error -> ErrorView(state.message, onTryAgain)
+        is MeasureMeViewModel.MeasureState.Error -> ErrorScreen(
+            error = MeasureError.fromMessage(state.message),
+            onBack = onMeasureAgain,
+            onRetake = onRetake,
+            onPick = onPick,
+        )
         is MeasureMeViewModel.MeasureState.Success -> SuccessView(state.result, onMeasureAgain)
+    }
+}
+
+/** Shared safe-area scaffold: background, then insets, then content padding.
+ *  The scroll viewport stops above the navigation bar so nothing rests under
+ *  it; long result content can still scroll. */
+@Composable
+private fun ResultScaffold(
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Mm.Paper)
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                ),
+            ),
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
+                    ),
+                )
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = MmSpace.Screen),
+            content = content,
+        )
     }
 }
 
 /** Nothing measured yet — a quiet placeholder instead of a blank screen. */
 @Composable
 private fun IdleView() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = MmSpace.MD),
-    ) {
+    ResultScaffold {
         Spacer(Modifier.height(MmSpace.MD))
         MmCard(modifier = Modifier.fillMaxWidth()) {
             Text("Nothing measured yet", style = MmType.label)
@@ -103,12 +144,7 @@ private fun LoadingView(step: Int) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = MmSpace.MD),
-    ) {
+    ResultScaffold {
         Spacer(Modifier.height(MmSpace.MD))
 
         MmCard(
@@ -125,60 +161,6 @@ private fun LoadingView(step: Int) {
         }
 
         Spacer(Modifier.height(MmSpace.MD))
-        PrivacyLine()
-        Spacer(Modifier.height(MmSpace.LG))
-    }
-}
-
-/** The photo could not be measured. One specific, fixable reason and a way
- * out — never a number we cannot stand behind. */
-@Composable
-private fun ErrorView(message: String, onTryAgain: () -> Unit) {
-    val reduced = rememberReducedMotion()
-
-    val appear = remember { Animatable(if (reduced) 1f else 0f) }
-    LaunchedEffect(Unit) {
-        if (!reduced) {
-            appear.animateTo(1f, spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow))
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = MmSpace.MD),
-    ) {
-        Spacer(Modifier.height(MmSpace.MD))
-
-        MmCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    alpha = appear.value
-                    translationY = (1f - appear.value) * 12.dp.toPx()
-                },
-        ) {
-            Text("Couldn't measure that", style = MmType.label)
-            Spacer(Modifier.height(MmSpace.SM))
-            FailureBanner(reason = message)
-            Spacer(Modifier.height(MmSpace.SM))
-            Text(
-                "A full-body shot with your face, head and feet in frame gives the " +
-                    "best result. Keep the phone level and step back until you fit.",
-                style = MmType.body2,
-            )
-        }
-
-        Spacer(Modifier.height(MmSpace.SM))
-
-        MmPrimaryButton(
-            label = "Try again",
-            onClick = onTryAgain,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(Modifier.height(MmSpace.SM))
         PrivacyLine()
         Spacer(Modifier.height(MmSpace.LG))
     }
@@ -220,19 +202,14 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
         label = "resultLineAlpha",
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = MmSpace.MD),
-    ) {
+    ResultScaffold {
         Spacer(Modifier.height(MmSpace.SM))
 
-        // Floating result card: 24 dp margins, ambient shadow, hairline.
+        // Floating result card: 24 dp total side margin (20 screen + 4 card).
         MmCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = MmSpace.MD)
+                .padding(horizontal = MmSpace.XXS)
                 .graphicsLayer {
                     alpha = appear.value
                     translationY = (1f - appear.value) * 12.dp.toPx()
@@ -323,7 +300,7 @@ private fun SuccessView(result: MeasureMeViewModel.Result, onMeasureAgain: () ->
             Spacer(Modifier.height(MmSpace.SM))
 
             Text(
-                "You measure ${result.headsTall} heads tall. Classical art uses 7.5.",
+                "You measure ${"%.1f".format(result.headsTall)} heads tall. Classical art uses 7.5.",
                 style = MmType.body2,
             )
         }

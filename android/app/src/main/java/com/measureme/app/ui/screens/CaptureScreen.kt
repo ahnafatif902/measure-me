@@ -4,22 +4,29 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.measureme.app.MeasureMeViewModel
 import com.measureme.app.MeasureMeViewModel.Mode
 import com.measureme.app.ui.components.CheckListRow
@@ -34,19 +41,17 @@ import com.measureme.app.ui.components.MmTopBar
 import com.measureme.app.ui.components.PrivacyLine
 import com.measureme.app.ui.components.Viewfinder
 import com.measureme.app.ui.icons.MmIcons
-import androidx.compose.ui.Modifier
 import com.measureme.app.ui.theme.Mm
 import com.measureme.app.ui.theme.MmSpace
 import com.measureme.app.ui.theme.MmType
 
 /**
  * Capture (UI Spec §6.2): back button and the mode name, the viewfinder, a
- * floating capture sheet containing the mode-specific setup (Mode B: camera
- * height stepper; Mode C: minimal A4 instructions) and the checklist. Take
- * photo / Choose photo side by side, Use a sample as a ghost button, and
- * Measure my height disabled until a photo exists.
+ * card containing the mode-specific setup and the checklist, then the photo
+ * actions. Measure my height is disabled until a photo exists.
  *
- * All spacing follows the 8 pt grid. No grid-like container stacking.
+ * Safe areas: the root owns the top and horizontal insets, the scroll
+ * viewport owns the bottom insets, and content uses the 20 dp screen padding.
  */
 @Composable
 fun CaptureScreen(
@@ -65,135 +70,147 @@ fun CaptureScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = MmSpace.MD),
+            .background(Mm.Paper)
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                ),
+            ),
     ) {
-        Spacer(Modifier.height(MmSpace.SM))
-
-        MmTopBar(
-            title = state.mode.label,
-            onBack = onBack,
-        )
-
-        Spacer(Modifier.height(MmSpace.MD))
-
-        Viewfinder(photo = state.photo)
-
-        Spacer(Modifier.height(MmSpace.MD))
-
-        // ---- capture sheet -------------------------------------------------
-        MmCard(modifier = Modifier.fillMaxWidth()) {
-            // mode-specific setup
-            when (state.mode) {
-                Mode.PROPORTIONS -> Unit
-                Mode.HORIZON -> CameraHeightSetup(
-                    cameraHeightCm = state.cameraHeightCm,
-                    onSetCameraHeight = onSetCameraHeight,
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
+                    ),
                 )
-                Mode.REFERENCE -> A4Setup()
-            }
-
-            if (state.mode != Mode.PROPORTIONS) Spacer(Modifier.height(MmSpace.MD))
-
-            // ---- checklist -------------------------------------------------
-            when (state.mode) {
-                Mode.PROPORTIONS -> {
-                    CheckListRow(
-                        title = "Head to toe in the frame",
-                        detail = "Face the camera and stand tall. Leave a hand's width above and below.",
-                    )
-                    Spacer(Modifier.height(MmSpace.SM))
-                    CheckListRow(
-                        title = "Phone level, around chest height",
-                        detail = "Hold it upright and still.",
-                    )
-                    Spacer(Modifier.height(MmSpace.SM))
-                    CheckListRow(
-                        title = "Even, bright light",
-                        detail = "Face the light, avoid a window behind you.",
-                    )
-                }
-                Mode.HORIZON -> {
-                    CheckListRow(
-                        title = "Hold the phone level and still",
-                        detail = "The tilt is read from the phone at the moment you shoot.",
-                    )
-                    Spacer(Modifier.height(MmSpace.SM))
-                    CheckListRow(
-                        title = "Head to toe in the frame",
-                        detail = "Leave a hand's width above and below.",
-                    )
-                    Spacer(Modifier.height(MmSpace.SM))
-                    CheckListRow(
-                        title = "Even, bright light",
-                        detail = "Face the light, avoid a window behind you.",
-                    )
-                }
-                Mode.REFERENCE -> {
-                    CheckListRow(
-                        title = "A4 sheet flat on the floor",
-                        detail = "Beside your feet. All four corners visible.",
-                    )
-                    Spacer(Modifier.height(MmSpace.SM))
-                    CheckListRow(
-                        title = "Head to toe in the frame",
-                        detail = "Your whole body and the sheet together.",
-                    )
-                    Spacer(Modifier.height(MmSpace.SM))
-                    CheckListRow(
-                        title = "Even, bright light",
-                        detail = "Face the light, avoid a window behind you.",
-                    )
-                }
-            }
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = MmSpace.Screen),
+        ) {
+            MmTopBar(
+                title = state.mode.label,
+                onBack = onBack,
+                modifier = Modifier.height(56.dp),
+            )
 
             Spacer(Modifier.height(MmSpace.MD))
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                MmSecondaryButton(
-                    label = "Take photo",
-                    icon = MmIcons.Camera,
-                    onClick = onTakePhoto,
-                )
-                MmSecondaryButton(
-                    label = "Choose photo",
-                    icon = MmIcons.ImagePlus,
-                    onClick = {
-                        galleryLauncher.launch(
-                            PickVisualMediaRequest(
-                                ActivityResultContracts.PickVisualMedia.ImageOnly,
-                            ),
+            Viewfinder(photo = state.photo)
+
+            Spacer(Modifier.height(MmSpace.MD))
+
+            // ---- capture sheet ---------------------------------------------
+            MmCard(modifier = Modifier.fillMaxWidth()) {
+                when (state.mode) {
+                    Mode.PROPORTIONS -> Unit
+                    Mode.HORIZON -> CameraHeightSetup(
+                        cameraHeightCm = state.cameraHeightCm,
+                        onSetCameraHeight = onSetCameraHeight,
+                    )
+                    Mode.REFERENCE -> A4Setup()
+                }
+
+                if (state.mode != Mode.PROPORTIONS) Spacer(Modifier.height(MmSpace.MD))
+
+                when (state.mode) {
+                    Mode.PROPORTIONS -> {
+                        CheckListRow(
+                            title = "Head to toe in the frame",
+                            detail = "Face the camera and stand tall. Leave a hand's width above and below.",
                         )
-                    },
+                        Spacer(Modifier.height(MmSpace.SM))
+                        CheckListRow(
+                            title = "Phone level, around chest height",
+                            detail = "Hold it upright and still.",
+                        )
+                        Spacer(Modifier.height(MmSpace.SM))
+                        CheckListRow(
+                            title = "Even, bright light",
+                            detail = "Face the light, avoid a window behind you.",
+                        )
+                    }
+                    Mode.HORIZON -> {
+                        CheckListRow(
+                            title = "Hold the phone level and still",
+                            detail = "The tilt is read from the phone at the moment you shoot.",
+                        )
+                        Spacer(Modifier.height(MmSpace.SM))
+                        CheckListRow(
+                            title = "Head to toe in the frame",
+                            detail = "Leave a hand's width above and below.",
+                        )
+                        Spacer(Modifier.height(MmSpace.SM))
+                        CheckListRow(
+                            title = "Even, bright light",
+                            detail = "Face the light, avoid a window behind you.",
+                        )
+                    }
+                    Mode.REFERENCE -> {
+                        CheckListRow(
+                            title = "A4 sheet flat on the floor",
+                            detail = "Beside your feet. All four corners visible.",
+                        )
+                        Spacer(Modifier.height(MmSpace.SM))
+                        CheckListRow(
+                            title = "Head to toe in the frame",
+                            detail = "Your whole body and the sheet together.",
+                        )
+                        Spacer(Modifier.height(MmSpace.SM))
+                        CheckListRow(
+                            title = "Even, bright light",
+                            detail = "Face the light, avoid a window behind you.",
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(MmSpace.MD))
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    MmSecondaryButton(
+                        label = "Take photo",
+                        icon = MmIcons.Camera,
+                        onClick = onTakePhoto,
+                    )
+                    MmSecondaryButton(
+                        label = "Choose photo",
+                        icon = MmIcons.ImagePlus,
+                        onClick = {
+                            galleryLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                        },
+                    )
+                }
+
+                Spacer(Modifier.height(MmSpace.XS))
+
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    MmGhostButton(label = "Use a sample", onClick = onSample)
+                }
+
+                if (state.failReason != null) {
+                    Spacer(Modifier.height(MmSpace.SM))
+                    FailureBanner(reason = state.failReason)
+                }
+
+                Spacer(Modifier.height(MmSpace.SM))
+
+                MmPrimaryButton(
+                    label = "Measure my height",
+                    onClick = { if (state.photo != null) onMeasure() },
+                    enabled = state.photo != null,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 
-            Spacer(Modifier.height(MmSpace.XS))
+            Spacer(Modifier.height(MmSpace.LG))
 
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                MmGhostButton(label = "Use a sample", onClick = onSample)
-            }
+            PrivacyLine()
 
-            if (state.failReason != null) {
-                Spacer(Modifier.height(MmSpace.SM))
-                FailureBanner(reason = state.failReason)
-            }
-
-            Spacer(Modifier.height(MmSpace.SM))
-
-            MmPrimaryButton(
-                label = "Measure my height",
-                onClick = onMeasure,
-                enabled = state.photo != null,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Spacer(Modifier.height(MmSpace.LG))
         }
-
-        Spacer(Modifier.height(MmSpace.LG))
-
-        PrivacyLine()
-
-        Spacer(Modifier.height(MmSpace.LG))
     }
 }
 

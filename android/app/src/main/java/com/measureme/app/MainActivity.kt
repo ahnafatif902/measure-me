@@ -44,17 +44,13 @@ class MainActivity : ComponentActivity() {
     private val vm: MeasureMeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Edge-to-edge must be requested before super.onCreate so the window
+        // is laid out under the system bars from the very first frame.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         // DEBUG-ONLY automated test hook (see handleDebugIntent below).
         if (BuildConfig.DEBUG) handleDebugIntent(intent)
-
-        // Edge-to-edge: content draws behind system bars; screens apply their
-        // own insets padding. Transparent status bar lets the paper background
-        // bleed to the top on light screens.
-        enableEdgeToEdge()
-        window.setStatusBarColor(android.graphics.Color.TRANSPARENT)
-        window.setNavigationBarColor(android.graphics.Color.TRANSPARENT)
 
         setContent {
             MeasureMeTheme {
@@ -166,7 +162,8 @@ private fun AppRoot(vm: MeasureMeViewModel, state: MeasureMeViewModel.UiState) {
             Screen.RESULT -> ResultScreen(
                 state = state.measure,
                 onMeasureAgain = vm::measureAgain,
-                onTryAgain = vm::measureAgain,
+                onRetake = vm::goCamera,
+                onPick = vm::measureAgain,
             )
         }
     }

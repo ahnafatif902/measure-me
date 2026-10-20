@@ -1,17 +1,18 @@
 package com.measureme.app.ui.components
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
@@ -22,12 +23,12 @@ import com.measureme.app.ui.theme.MmShapes
 import com.measureme.app.ui.theme.MmSpace
 
 /**
- * Floating glass sheet for the camera screen bottom.
+ * Floating sheet for the camera bottom.
  *
- * Alpha compositing over the live preview — no Haze, works on API 24+.
- * The sheet sits above the navigation bar with inset padding.
- *
- * @param content the sheet body
+ * Background and shape are applied BEFORE the inset padding, so the fill
+ * extends under the navigation bar while the content stays above it. The
+ * top-corner highlight is a rounded inset border (see [mmTopHighlight]), not
+ * a straight line, so it never cuts across the radius.
  */
 @Composable
 fun MmGlassSheet(
@@ -43,21 +44,15 @@ fun MmGlassSheet(
                 spotColor = Mm.Shadow.copy(alpha = 0.12f),
             )
             .clip(MmShapes.Sheet)
-            .background(MmGlass.Fill)
+            .background(Mm.Sheet)
             .border(1.dp, MmGlass.Border, MmShapes.Sheet)
-            .padding(MmSpace.MD),
-    ) {
-        // Inner top highlight that makes the surface read as physical glass.
-        Canvas(modifier = Modifier.fillMaxWidth()) {
-            val r = 24.dp.toPx()
-            val w = size.width
-            drawLine(
-                color = MmGlass.Highlight,
-                start = Offset(r + 6.dp.toPx(), 1.dp.toPx()),
-                end = Offset(w - r - 6.dp.toPx(), 1.dp.toPx()),
-                strokeWidth = 1.dp.toPx(),
+            .mmTopHighlight(28.dp, alpha = 0.55f)
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
+                ),
             )
-        }
-        content()
-    }
+            .padding(MmSpace.Screen),
+        content = content,
+    )
 }

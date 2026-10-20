@@ -118,14 +118,26 @@ private fun Modifier.mmCardDecoration(): Modifier = this
     .border(1.dp, Mm.Line, MmShapes.Card)
     .mmTopHighlight(24.dp)
 
-/** The 1 px white inner top highlight that makes surfaces read as physical. */
+/** The 1 px inner top highlight that makes surfaces read as physical.
+ *  Drawn as a rounded, vertical-gradient border INSET inside the shape, so it
+ *  follows the corner radius instead of cutting a straight line across it. */
 internal fun Modifier.mmTopHighlight(corner: Dp, alpha: Float = 0.65f): Modifier = drawBehind {
-    val r = corner.toPx()
-    drawLine(
-        color = Color.White.copy(alpha = alpha),
-        start = Offset(r + 6.dp.toPx(), 1.dp.toPx()),
-        end = Offset(size.width - r - 6.dp.toPx(), 1.dp.toPx()),
-        strokeWidth = 1.dp.toPx(),
+    val stroke = 1.dp.toPx()
+    val half = stroke / 2f
+    val radius = (corner.toPx() - half).coerceAtLeast(0f)
+    drawRoundRect(
+        brush = Brush.verticalGradient(
+            colors = listOf(Color.White.copy(alpha = alpha), Color.Transparent),
+            startY = 0f,
+            endY = minOf(size.height * 0.5f, 24.dp.toPx()),
+        ),
+        topLeft = Offset(half, half),
+        size = Size(
+            (size.width - stroke).coerceAtLeast(0f),
+            (size.height - stroke).coerceAtLeast(0f),
+        ),
+        cornerRadius = CornerRadius(radius),
+        style = Stroke(width = stroke),
     )
 }
 
@@ -298,6 +310,7 @@ fun MmIconButton(
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    size: Dp = 44.dp,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -314,7 +327,7 @@ fun MmIconButton(
 
     Box(
         modifier = modifier
-            .size(44.dp)
+            .size(size)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(CircleShape)
             .background(Mm.Surface)
@@ -322,7 +335,12 @@ fun MmIconButton(
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = Mm.Ink, modifier = Modifier.size(18.dp))
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            tint = Mm.Ink,
+            modifier = Modifier.size(if (size >= 48.dp) 20.dp else 18.dp),
+        )
     }
 }
 
@@ -346,7 +364,7 @@ fun ModeCard(
     val pressed by interaction.collectIsPressedAsState()
     val reduced = rememberReducedMotion()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.97f else 1f,
+        targetValue = if (pressed) 0.98f else 1f,
         animationSpec = if (reduced) snap() else MmMotion.Press,
         label = "modePress",
     )
@@ -364,6 +382,11 @@ fun ModeCard(
                 indication = null,
                 onClick = onClick,
             )
+            .shadow(
+                MmElevation.Card, MmShapes.Card,
+                ambientColor = Mm.Shadow.copy(alpha = 0.10f),
+                spotColor = Mm.Shadow.copy(alpha = 0.10f),
+            )
             .clip(MmShapes.Card)
             .background(Mm.Surface)
             .border(
@@ -371,29 +394,36 @@ fun ModeCard(
                 if (selected) Mm.Accent else Mm.Line,
                 MmShapes.Card,
             )
-            .shadow(
-                MmElevation.Card, MmShapes.Card,
-                ambientColor = Mm.Shadow.copy(alpha = 0.10f),
-                spotColor = Mm.Shadow.copy(alpha = 0.10f),
-            )
-            .padding(MmSpace.MD),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(MmSpace.Screen),
+        verticalAlignment = Alignment.Top,
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = if (selected) Mm.Accent else Mm.Ink2,
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(Modifier.width(MmSpace.SM))
+        // 40 dp tinted circle, top-aligned with the title — not centred on the
+        // whole text block. This is the only painted container inside the card.
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(
+                    if (selected) Mm.Accent.copy(alpha = 0.12f) else Mm.Inset,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (selected) Mm.Accent else Mm.Ink2,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.width(MmSpace.Gap))
         Column(Modifier.weight(1f)) {
             Text(title, style = MmType.wordmark)
-            Spacer(Modifier.height(2.dp))
-            Text(note, style = MmType.subtitle)
+            Spacer(Modifier.height(MmSpace.XXS))
+            Text(note, style = MmType.body2)
         }
-        Spacer(Modifier.width(MmSpace.SM))
         if (selected) {
-            CheckCircle(checked = true)
+            Spacer(Modifier.width(MmSpace.Gap))
+            Box(Modifier.padding(top = 1.dp)) { CheckCircle(checked = true) }
         }
     }
 }
@@ -461,7 +491,9 @@ fun MmTopBar(
             Icon(leadingIcon, contentDescription = null, tint = Mm.Ink, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(MmSpace.XS))
         }
-        Text(title, style = MmType.wordmark)
+        if (title.isNotEmpty()) {
+            Text(title, style = MmType.wordmark)
+        }
     }
 }
 

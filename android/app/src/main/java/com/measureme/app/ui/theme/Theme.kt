@@ -45,14 +45,22 @@ object Mm {
     /** Ambient card shadow colour — rgba(35,31,27,0.18). */
     val Shadow = Color(0x2E231F1B)
 
+    /** Bottom-sheet fill. Opaque: on 3-button navigation the system draws a
+     *  light scrim behind the transparent bar, and a translucent sheet lets it
+     *  show through as a different-coloured strip. */
+    val Sheet = Color(0xFFFBF8F2)
+
     /** Disabled controls: 40% opacity (spec §5). */
     const val DisabledAlpha = 0.40f
 }
 
-/** Spacing rhythm — every padding, margin, gap is a multiple of 8 dp (premium rule). */
+/** Spacing rhythm — 4 pt grid (spec §4). Screen padding is 20, related items 12. */
 object MmSpace {
+    val XXS = 4.dp
     val XS = 8.dp
+    val Gap = 12.dp
     val SM = 16.dp
+    val Screen = 20.dp
     val MD = 24.dp
     val LG = 32.dp
     val XL = 48.dp
@@ -87,9 +95,9 @@ object MmShapes {
     val Button: Shape = RoundedCornerShape(16.dp)
     val Tile: Shape = RoundedCornerShape(16.dp)
     val Progress: Shape = RoundedCornerShape(percent = 50)
-    /** Floating sheets — top corners rounded, bottom square to meet the nav bar. */
+    /** Floating sheets — top corners 28, bottom square to meet the nav bar. */
     val Sheet: Shape = RoundedCornerShape(
-        topStart = 24.dp, topEnd = 24.dp, bottomStart = 0.dp, bottomEnd = 0.dp,
+        topStart = 28.dp, topEnd = 28.dp, bottomStart = 0.dp, bottomEnd = 0.dp,
     )
 }
 
@@ -129,6 +137,12 @@ object MmType {
     /** Wordmark and screen titles — Fraunces 18 / 24, weight 500. */
     val wordmark = TextStyle(
         fontFamily = FrauncesText, fontSize = 18.sp, lineHeight = 24.sp,
+        fontWeight = FontWeight.Medium, letterSpacing = (-0.02).em, color = Mm.Ink,
+    )
+
+    /** Error-screen title — Fraunces 28 / 32, weight 500. */
+    val title = TextStyle(
+        fontFamily = FrauncesText, fontSize = 28.sp, lineHeight = 32.sp,
         fontWeight = FontWeight.Medium, letterSpacing = (-0.02).em, color = Mm.Ink,
     )
 

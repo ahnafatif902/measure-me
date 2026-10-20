@@ -28,11 +28,11 @@ product documents (`docs/`).
 
 ### App Preview
 
-| Home | Camera | Result |
-| :---: | :---: | :---: |
-| ![Home](docs/shots/01-home.png) | ![Camera](docs/shots/02-camera.png) | ![Result](docs/shots/03-result.png) |
+| Home | Camera | Error | Result |
+| :---: | :---: | :---: | :---: |
+| ![Home](docs/shots/01-home.png) | ![Camera](docs/shots/02-camera.png) | ![Error](docs/shots/03-error.png) | ![Result](docs/shots/04-result.png) |
 
-The premium UI overhaul: a full-bleed camera preview with zero drawn overlays, a floating glass bottom sheet with exact spec §7 copy, premium mode cards on Home, and a floating result card with a spring count-up and explicit error range.
+Android app at standard font scale with 3-button navigation.
 
 ---
 
@@ -242,7 +242,7 @@ js/overlay.js         canvas drawing: markers, dimension line, pins, loupe
 js/manual.js          3-tap manual mode: pointer input, drag, loupe
 js/ui.js              the only DOM writer; phase matrix, result/error cards
 js/app.js             orchestration, settings, testing hook
-docs/shots/           screenshots of the three main screens (01–03)
+docs/shots/           screenshots of the four main screens (01–04)
 .test/                agent-browser batch scripts + test photos (dev only)
 android/              separate native Kotlin/Compose implementation of the
                       same pipeline — not covered by this README
@@ -262,4 +262,4 @@ android/              separate native Kotlin/Compose implementation of the
   sliders, failures) plus test photos from Wikimedia Commons and the
   MediaPipe demo assets — **dev-only, not shipped assets**; check each
   license before reusing.
-- `docs/shots/` — three screenshots of the main screens: `01-home`, `02-camera`, `03-result`.
+- `docs/shots/` — four screenshots of the main screens: `01-home`, `02-camera`, `03-error`, `04-result`.
