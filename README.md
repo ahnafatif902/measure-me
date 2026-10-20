@@ -32,7 +32,7 @@ product documents (`docs/`).
 | :---: | :---: | :---: |
 | ![Home](docs/shots/01-home.png) | ![Camera](docs/shots/02-camera.png) | ![Result](docs/shots/03-result.png) |
 
-The premium UI overhaul: a full-bleed camera preview with zero drawn overlays, a floating glass bottom sheet with exact spec §7 copy, a contextual segmented control replacing the mode cards, and a floating result card with a spring count-up and explicit error range.
+The premium UI overhaul: a full-bleed camera preview with zero drawn overlays, a floating glass bottom sheet with exact spec §7 copy, premium mode cards on Home, and a floating result card with a spring count-up and explicit error range.
 
 ---
 
