@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -150,18 +149,14 @@ fun CameraScreen(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF1C1C1E)),
-    ) {
-        // ---- full-bleed preview (disabled — clean dark background for screenshots) ----
-        // CameraX PreviewView disabled to keep the frame clean:
-        // AndroidView(
-        //     factory = { previewView },
-        //     modifier = Modifier.fillMaxSize(),
-        // )
-        if (cameraError != null || !hasCameraPermission) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ---- full-bleed preview -------------------------------------------
+        if (hasCameraPermission && cameraError == null) {
+            AndroidView(
+                factory = { previewView },
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
             Column(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
